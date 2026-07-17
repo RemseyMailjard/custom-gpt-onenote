@@ -1,0 +1,469 @@
+openapi: 3.1.0
+info:
+  title: OneNote via Microsoft Graph (Proxy)
+  description: >
+    Proxy in front of Microsoft Graph v1.0 for reading and writing OneNote
+    notebooks, sections and pages of the signed-in user. The proxy forwards
+    the caller's Authorization header straight through to Microsoft Graph,
+    so a valid Microsoft Entra ID (Azure AD) delegated access token with
+    OneNote permissions is required on every call.
+
+    Note: creating a page (POST .../sections/{sectionId}/pages) accepts a
+    plain JSON body with a `content` field containing full HTML; the proxy
+    converts it to the multipart/form-data format Microsoft Graph requires.
+    All other operations are transparent pass-through to Microsoft Graph.
+  version: 1.0.0
+servers:
+  - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net
+    description: Production (Azure Functions, Linux Consumption)
+
+security:
+  - oneNoteOAuth:
+      - Notes.ReadWrite
+      - offline_access
+
+paths:
+  /v1.0/me/onenote/notebooks:
+    get:
+      operationId: listNotebooks
+      summary: List the signed-in user's OneNote notebooks
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of notebooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createNotebook
+      summary: Create a new OneNote notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new notebook
+                  example: Project X
+      responses:
+        '201':
+          description: Notebook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notebook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/sections:
+    get:
+      operationId: listSectionsInNotebook
+      summary: List the sections inside a specific notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections:
+    get:
+      operationId: listAllSections
+      summary: List all OneNote sections of the signed-in user (across notebooks)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/sections/{sectionId}/pages:
+    get:
+      operationId: listPagesInSection
+      summary: List the pages inside a specific section
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createPage
+      summary: Create a new page in a section from full HTML
+      description: >
+        Send the complete HTML document as a string in the `content` field.
+        The proxy wraps it in the multipart/form-data format Microsoft Graph
+        requires for one-step page creation, so callers only need plain JSON.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  description: >
+                    Full HTML document for the page, e.g.
+                    "<html><head><title>My title</title></head><body><p>Hello</p></body></html>".
+                    The <title> becomes the page title in OneNote.
+                  example: "<html><head><title>Meeting notes</title></head><body><p>Hello world</p></body></html>"
+      responses:
+        '201':
+          description: Page created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '400':
+          description: Missing or invalid JSON body, or missing `content` field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/pages:
+    get:
+      operationId: listPages
+      summary: List all OneNote pages of the signed-in user (across sections)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+        - name: search
+          in: query
+          description: Free-text search across page titles/content (OData $search)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/pages/{pageId}:
+    get:
+      operationId: getPage
+      summary: Get metadata for a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+      responses:
+        '200':
+          description: Page metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deletePage
+      summary: Delete a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      responses:
+        '204':
+          description: Page deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/content:
+    get:
+      operationId: getPageContent
+      summary: Get the full HTML content of a page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      responses:
+        '200':
+          description: HTML content of the page
+          content:
+            text/html:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    oneNoteOAuth:
+      type: oauth2
+      description: >
+        Configure Client ID / Client Secret in ChatGPT's Action ->
+        Authentication panel (OAuth), not in this file. Use a Microsoft
+        Entra ID app registration (single tenant: a300b38b-6acb-43db-b02a-af94b4300d87 / skills4-it.nl)
+        with redirect URI https://chat.openai.com/aip/<action-id>/oauth/callback
+        (ChatGPT shows the exact value once OAuth is selected) and delegated
+        Microsoft Graph permission Notes.ReadWrite (+ offline_access) granted.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/token
+          scopes:
+            Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
+            offline_access: Keep access when the user is not present (refresh token)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Authorization header / token rejected by Microsoft Graph
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    Notebook:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        isDefault:
+          type: boolean
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    NotebookCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notebook'
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        pagesUrl:
+          type: string
+
+    SectionCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+
+    Page:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        contentUrl:
+          type: string
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    PageCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Page'
