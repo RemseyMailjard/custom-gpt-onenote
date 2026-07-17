@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const ONENOTE_PAGE_CREATE_PATTERN = /^me\/onenote\/sections\/[^/]+\/pages$/i;
+const ONENOTE_PAGE_UPDATE_PATTERN = /^me\/onenote\/pages\/[^/]+\/content$/i;
 
 function buildMultipartBody(html) {
   const boundary = `OneNoteBoundary${Date.now()}${Math.random().toString(16).slice(2)}`;
@@ -10,6 +11,17 @@ function buildMultipartBody(html) {
     'Content-Disposition: form-data; name="Presentation"\r\n' +
     'Content-Type: text/html\r\n\r\n' +
     `${html}\r\n` +
+    `--${boundary}--\r\n`;
+  return { boundary, body };
+}
+
+function buildPageUpdateMultipartBody(commands) {
+  const boundary = `OneNoteBoundary${Date.now()}${Math.random().toString(16).slice(2)}`;
+  const body =
+    `--${boundary}\r\n` +
+    'Content-Disposition: form-data; name="Commands"\r\n' +
+    'Content-Type: application/json\r\n\r\n' +
+    `${JSON.stringify(commands)}\r\n` +
     `--${boundary}--\r\n`;
   return { boundary, body };
 }
@@ -61,6 +73,37 @@ app.http('graphProxy', {
       const { boundary, body } = buildMultipartBody(html);
       const graphResponse = await fetch(url.toString(), {
         method: 'POST',
+        headers: {
+          Authorization: authHeader,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`
+        },
+        body
+      });
+      return forwardResponse(graphResponse);
+    }
+
+    const isOneNotePageUpdate =
+      request.method === 'PATCH' && ONENOTE_PAGE_UPDATE_PATTERN.test(restOfPath);
+
+    if (isOneNotePageUpdate) {
+      let payload;
+      try {
+        payload = await request.json();
+      } catch {
+        return { status: 400, jsonBody: { error: { message: 'Ongeldige of ontbrekende JSON-body.' } } };
+      }
+
+      const commands = payload && payload.commands;
+      if (!Array.isArray(commands) || commands.length === 0) {
+        return {
+          status: 400,
+          jsonBody: { error: { message: "Veld 'commands' is verplicht en moet een niet-lege array zijn." } }
+        };
+      }
+
+      const { boundary, body } = buildPageUpdateMultipartBody(commands);
+      const graphResponse = await fetch(url.toString(), {
+        method: 'PATCH',
         headers: {
           Authorization: authHeader,
           'Content-Type': `multipart/form-data; boundary=${boundary}`

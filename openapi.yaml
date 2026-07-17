@@ -9,9 +9,11 @@ info:
     OneNote permissions is required on every call.
 
     Note: creating a page (POST .../sections/{sectionId}/pages) accepts a
-    plain JSON body with a `content` field containing full HTML; the proxy
-    converts it to the multipart/form-data format Microsoft Graph requires.
-    All other operations are transparent pass-through to Microsoft Graph.
+    plain JSON body with a `content` field containing full HTML, and updating
+    a page's content (PATCH .../pages/{pageId}/content) accepts a plain JSON
+    body with a `commands` array; the proxy converts both to the
+    multipart/form-data format Microsoft Graph requires. All other
+    operations are transparent pass-through to Microsoft Graph.
   version: 1.0.0
 servers:
   - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net
@@ -318,6 +320,51 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updatePageContent
+      summary: Update the content of an existing page
+      description: >
+        Send one or more commands describing how to modify the page's HTML.
+        The proxy wraps them in the multipart/form-data "Commands" part
+        Microsoft Graph requires, so callers only need plain JSON.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commands]
+              properties:
+                commands:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/PageContentCommand'
+              example:
+                commands:
+                  - target: body
+                    action: append
+                    content: "<p>Extra note added later.</p>"
+      responses:
+        '204':
+          description: Page content updated
+        '400':
+          description: Missing or invalid JSON body, or missing/empty `commands` array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
@@ -467,3 +514,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Page'
+
+    PageContentCommand:
+      type: object
+      required: [target, action]
+      properties:
+        target:
+          type: string
+          description: Element to modify — "body", or the data-id of an existing element on the page
+          example: body
+        action:
+          type: string
+          enum: [append, insert, prepend, replace, delete]
+          description: How to apply this command relative to the target
+        position:
+          type: string
+          enum: [before, after]
+          description: Used together with action "insert" to position content relative to target
+        content:
+          type: string
+          description: HTML fragment to insert/append/prepend/replace with. Not used for action "delete".
