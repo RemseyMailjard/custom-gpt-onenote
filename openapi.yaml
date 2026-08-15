@@ -372,15 +372,18 @@ components:
       type: oauth2
       description: >
         Configure Client ID / Client Secret in ChatGPT's Action ->
-        Authentication panel (OAuth), not in this file. Use a Microsoft
-        Entra ID app registration (single tenant: a300b38b-6acb-43db-b02a-af94b4300d87 / skills4-it.nl)
-        with redirect URI https://chat.openai.com/aip/<action-id>/oauth/callback
-        (ChatGPT shows the exact value once OAuth is selected) and delegated
-        Microsoft Graph permission Notes.ReadWrite (+ offline_access) granted.
+        Authentication panel (OAuth), not in this file. Use a multitenant
+        Microsoft Entra ID app registration (sign-in audience
+        AzureADMultipleOrgs, so any work/school Microsoft 365 tenant can
+        sign in — not just skills4-it.nl) with redirect URI
+        https://chat.openai.com/aip/<action-id>/oauth/callback (ChatGPT
+        shows the exact value once OAuth is selected) and delegated
+        Microsoft Graph permission Notes.ReadWrite (+ offline_access)
+        granted.
       flows:
         authorizationCode:
-          authorizationUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/authorize
-          tokenUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/token
+          authorizationUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/token
           scopes:
             Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
             offline_access: Keep access when the user is not present (refresh token)

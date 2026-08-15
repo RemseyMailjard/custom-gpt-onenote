@@ -122,9 +122,11 @@ registration to run the OAuth authorization-code flow against.
 ```bash
 TENANT_ID=$(az account show --query tenantId -o tsv)
 
-# 1. create a single-tenant app registration
+# 1. create a multitenant app registration — any work/school Microsoft 365
+# tenant can sign in, not just this one. Use AzureADMyOrg instead if you only
+# ever want your own tenant's users.
 az ad app create --display-name "OneNote ChatGPT Action" \
-  --sign-in-audience AzureADMyOrg
+  --sign-in-audience AzureADMultipleOrgs
 
 APP_ID=<appId from the output above>
 
@@ -140,12 +142,31 @@ az ad app credential reset --id $APP_ID --append --display-name "chatgpt-action"
 ```
 
 Both `Notes.ReadWrite` and `offline_access` are user-consentable scopes, so
-**admin consent is not required** — the signed-in user approves them on first
-login through ChatGPT's OAuth screen.
+**admin consent is not required from any tenant** — every signed-in user, in
+their own organization, approves them individually on first login through
+ChatGPT's OAuth screen. No one needs to pre-register or be added anywhere;
+sign-in and consent alone is what grants access, scoped to that user's own
+OneNote.
+
+### Already have a single-tenant registration?
+
+You don't need to create a new one — switch the existing registration to
+multitenant in place (this keeps the same Client ID/Secret, so the ChatGPT
+Action doesn't need to change):
+
+```bash
+az ad app update --id $APP_ID --sign-in-audience AzureADMultipleOrgs
+
+# verify:
+az ad app show --id $APP_ID --query signInAudience -o tsv
+# expect: AzureADMultipleOrgs
+```
 
 This project's app registration: `OneNote ChatGPT Action`, app id
-`f1d0f17d-e587-40d2-a698-fb0bd8979404`, tenant `a300b38b-6acb-43db-b02a-af94b4300d87`
-(skills4-it.nl).
+`f1d0f17d-e587-40d2-a698-fb0bd8979404`, home tenant `a300b38b-6acb-43db-b02a-af94b4300d87`
+(skills4-it.nl) — multitenant (`AzureADMultipleOrgs`), so users from any
+other Microsoft 365 work/school tenant can sign in too. Personal Microsoft
+accounts (`@outlook.com`, `@live.com`) are intentionally not supported.
 
 ## Setting up the Custom GPT
 
@@ -159,10 +180,17 @@ This project's app registration: `OneNote ChatGPT Action`, app id
    |---|---|
    | Client ID | `f1d0f17d-e587-40d2-a698-fb0bd8979404` |
    | Client Secret | *(the secret from step 3 above — never commit this)* |
-   | Authorization URL | `https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/authorize` |
-   | Token URL | `https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/token` |
+   | Authorization URL | `https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize` |
+   | Token URL | `https://login.microsoftonline.com/organizations/oauth2/v2.0/token` |
    | Scope | `https://graph.microsoft.com/Notes.ReadWrite offline_access` |
    | Token Exchange Method | Default (POST request) |
+
+   Use the `/organizations/` path, not a specific tenant ID — that's what
+   makes sign-in multitenant. It accepts a user from *any* Microsoft 365
+   work/school tenant (each signs in against their own tenant and consents
+   individually), while still rejecting personal `@outlook.com`/`@live.com`
+   accounts. Using a tenant-specific GUID here instead would restrict
+   sign-in to that one organization only.
 
    #### What each field means
 
@@ -186,19 +214,22 @@ This project's app registration: `OneNote ChatGPT Action`, app id
      shows it back to you after saving.
 
    - **Authorization URL** —
-     `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/authorize`.
+     `https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize`.
      The page ChatGPT sends the user's browser to *first* — this is the
-     actual Microsoft login/consent screen. The `<tenant-id>` in the path
-     restricts sign-in to that one Entra tenant (`a300b38b-...` /
-     skills4-it.nl here); a multitenant app would use `organizations` or
-     `common` here instead.
+     actual Microsoft login/consent screen. The path segment after
+     `login.microsoftonline.com` controls who's allowed to sign in: a
+     specific tenant GUID there restricts sign-in to that one Entra tenant;
+     `organizations` (used here) accepts any work/school tenant; `common`
+     would also accept personal Microsoft accounts, which this app
+     deliberately doesn't support.
 
    - **Token URL** —
-     `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`. Where
-     ChatGPT calls, server-to-server (browser never sees this step), *after*
-     the user consents — it exchanges the authorization code from the
-     callback for an actual access token, using the Client ID + Client
-     Secret as proof of identity.
+     `https://login.microsoftonline.com/organizations/oauth2/v2.0/token`.
+     Where ChatGPT calls, server-to-server (browser never sees this step),
+     *after* the user consents — it exchanges the authorization code from
+     the callback for an actual access token, using the Client ID + Client
+     Secret as proof of identity. Must use the same path segment
+     (`organizations`) as the Authorization URL above.
 
    - **Scope** — `https://graph.microsoft.com/Notes.ReadWrite offline_access`,
      space-separated. This is what ChatGPT actually asks Microsoft for
@@ -310,6 +341,12 @@ This project's app registration: `OneNote ChatGPT Action`, app id
    Create a page titled "Test" in my "remsey-os" notebook with a short note
    confirming the OneNote Action works.
    ```
+
+6. Custom GPTs with Actions require a **Privacy Policy URL** (GPT Builder →
+   **Configure**, near the bottom). This repo includes one:
+   [privacy-policy.html](privacy-policy.html). Host it somewhere public (e.g.
+   serve it as a static file from the same Function App, or any static host)
+   and paste that URL into the GPT Builder's Privacy Policy field.
 
 ### Suggested GPT instructions (OneNote section)
 

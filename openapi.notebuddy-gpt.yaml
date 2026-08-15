@@ -372,9 +372,11 @@ components:
       type: oauth2
       description: >
         Configure Client ID / Client Secret in ChatGPT's Action ->
-        Authentication panel (OAuth), not in this file. Use a Microsoft
-        Entra ID app registration (single tenant: a300b38b-6acb-43db-b02a-af94b4300d87 / skills4-it.nl)
-        with redirect URI https://chat.openai.com/aip/g-d0ce268413020bbc99dd5b70bc3aa6be2f2de5eb/oauth/callback
+        Authentication panel (OAuth), not in this file. Use a multitenant
+        Microsoft Entra ID app registration (sign-in audience
+        AzureADMultipleOrgs, so any work/school Microsoft 365 tenant can
+        sign in — not just skills4-it.nl) with redirect URI
+        https://chat.openai.com/aip/g-d0ce268413020bbc99dd5b70bc3aa6be2f2de5eb/oauth/callback
         (this is this GPT's actual callback URL, shown by ChatGPT once OAuth
         is selected as the auth method — it changes if the GPT's Action is
         deleted and recreated, so re-check it if auth stops working) and
@@ -382,8 +384,8 @@ components:
         granted.
       flows:
         authorizationCode:
-          authorizationUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/authorize
-          tokenUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/token
+          authorizationUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/token
           scopes:
             Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
             offline_access: Keep access when the user is not present (refresh token)
