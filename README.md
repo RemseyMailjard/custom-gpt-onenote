@@ -1,8 +1,43 @@
 # OneNote Graph Proxy — Custom GPT Action
 
-An Azure Functions (Node.js) proxy in front of Microsoft Graph `v1.0`, built so a
-ChatGPT Custom GPT Action can read and write OneNote notebooks, sections and
-pages on behalf of a signed-in Microsoft user.
+## What this is
+
+**NoteBuddy** (working name) lets you talk to your Microsoft OneNote notebooks
+from a ChatGPT Custom GPT: find notes, read pages, and create or update pages,
+all through natural conversation instead of clicking through OneNote.
+
+This repo is the backend piece that makes that possible — a small **Azure
+Functions proxy** in front of Microsoft Graph's OneNote API. It is *not* an
+MCP server; it's a REST API described by an OpenAPI spec ([openapi.yaml](openapi.yaml))
+that a ChatGPT Custom GPT calls as an "Action". The GPT itself (via its
+Instructions, see below) does the reasoning: deciding which notebook/section/
+page to use, resolving names to IDs, and generating page content. The proxy's
+only real job is a small technical fix — Microsoft Graph requires
+`multipart/form-data` for creating/updating page content, but ChatGPT Actions
+can only send plain JSON — plus passing every other request straight through
+to Graph with the caller's Microsoft token.
+
+```
+You (in ChatGPT) → Custom GPT → Action (this proxy) → Microsoft Graph → OneNote
+```
+
+What it currently supports (via Graph, exposed as GPT Action operations):
+
+- List notebooks, sections, pages (`listNotebooks`, `listAllSections`, `listPagesInSection`, ...)
+- Read a page's content (`getPage`, `getPageContent`)
+- Create a notebook or page (`createNotebook`, `createPage`)
+- Update an existing page's content (`updatePageContent`)
+- Delete a page (`deletePage`)
+
+Authentication is delegated Microsoft sign-in (OAuth via Entra ID) — you only
+ever see and edit your own OneNote content, scoped to `Notes.ReadWrite`.
+
+## Installation
+
+Everything needed to run this yourself is below: local development, deploying
+to Azure, registering the Entra ID app, and wiring it up as a Custom GPT
+Action. Follow the sections in order — Azure deploy → Entra app registration →
+Custom GPT setup.
 
 ## Why a proxy?
 
@@ -129,6 +164,76 @@ This project's app registration: `OneNote ChatGPT Action`, app id
    | Scope | `https://graph.microsoft.com/Notes.ReadWrite offline_access` |
    | Token Exchange Method | Default (POST request) |
 
+   #### What each field means
+
+   - **Authentication Type** — set to **OAuth**, not "API Key". This tells
+     ChatGPT to run a full browser-based sign-in flow (redirect to Microsoft,
+     user logs in, redirect back with a code, exchange for a token) instead
+     of just sending a static key on every request. Required here because
+     Graph needs a *delegated, per-user* token — there's no fixed "API key"
+     that would let the proxy know which user's OneNote to read.
+
+   - **Client ID** — `f1d0f17d-e587-40d2-a698-fb0bd8979404`, the public
+     identifier of the Entra app registration (`az ad app create` in step 1
+     above returns this as `appId`). Identifies *which application* is asking
+     Microsoft for access — not a secret, safe to show in a URL or commit.
+
+   - **Client Secret** — the value from `az ad app credential reset` in step
+     3 above, shown once at creation time. Proves to Microsoft that it's
+     really *this* app (not an impersonator using the same Client ID) asking
+     for a token. Never commit it, never put it in this repo — it only lives
+     in ChatGPT's Action auth panel, which stores it encrypted and never
+     shows it back to you after saving.
+
+   - **Authorization URL** —
+     `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/authorize`.
+     The page ChatGPT sends the user's browser to *first* — this is the
+     actual Microsoft login/consent screen. The `<tenant-id>` in the path
+     restricts sign-in to that one Entra tenant (`a300b38b-...` /
+     skills4-it.nl here); a multitenant app would use `organizations` or
+     `common` here instead.
+
+   - **Token URL** —
+     `https://login.microsoftonline.com/<tenant-id>/oauth2/v2.0/token`. Where
+     ChatGPT calls, server-to-server (browser never sees this step), *after*
+     the user consents — it exchanges the authorization code from the
+     callback for an actual access token, using the Client ID + Client
+     Secret as proof of identity.
+
+   - **Scope** — `https://graph.microsoft.com/Notes.ReadWrite offline_access`,
+     space-separated. This is what ChatGPT actually asks Microsoft for
+     permission to do, shown to the user on the consent screen:
+     - `Notes.ReadWrite` — delegated permission to read/write the signed-in
+       user's own OneNote notebooks (never more than that — see
+       [Permissions strategy](../onenote-graph-proxy/NoteBuddy%20—%20Product%20&%20Technical%20Specification.md)
+       for why this repo deliberately doesn't request broader Graph scopes).
+     - `offline_access` — lets Microsoft also hand back a *refresh* token,
+       so ChatGPT can silently get new access tokens later without forcing
+       the user to log in again every ~60–90 minutes.
+     Must exactly match (a subset of) what was granted with
+     `az ad app permission add` in step 2 further up — asking for a scope
+     that isn't on the app registration causes consent to fail.
+
+   - **Token Exchange Method** — **Default (POST request)** vs **Basic
+     authorization header**. Both send the Client ID + Client Secret to the
+     Token URL; they only differ in *how*:
+     - *Default (POST request)* — `client_id` and `client_secret` go in the
+       POST body, alongside `code`, `redirect_uri`, `grant_type`. This is
+       what Microsoft's `v2.0/token` endpoint expects, and what this project
+       uses.
+     - *Basic authorization header* — the same credentials go in an
+       `Authorization: Basic base64(client_id:client_secret)` HTTP header
+       instead of the body. Some OAuth providers require this form, but
+       Microsoft's endpoint accepts the body form, so there's no reason to
+       switch it here.
+
+   - **The warning about redirect URLs** ("*OAuth may fail if you don't allow
+     our redirect URLs*") is exactly the callback-URL requirement explained
+     below — ChatGPT is telling you it will redirect back to
+     `https://chat.openai.com/aip/<this-gpt-id>/oauth/callback`, and that URL
+     must be registered on the Entra app or Microsoft will refuse the
+     redirect (`AADSTS50011`).
+
 4. Save. ChatGPT now shows a callback URL like
    `https://chat.openai.com/aip/g-.../oauth/callback`. Add it as a **Web**
    redirect URI on the app registration:
@@ -136,6 +241,64 @@ This project's app registration: `OneNote ChatGPT Action`, app id
    ```bash
    az ad app update --id $APP_ID --web-redirect-uris "<callback URL from ChatGPT>"
    ```
+
+   #### What this callback URL actually is
+
+   This URL is generated **by ChatGPT**, not by you or by this proxy. It only
+   appears after you fill in Client ID/Secret and the two Microsoft endpoints
+   in step 3 and save the Action — ChatGPT then shows something like:
+
+   ```
+   https://chat.openai.com/aip/g-d0ce268413020bbc99dd5b70bc3aa6be2f2de5eb/oauth/callback
+   ```
+
+   The `g-d0ce2684...` part is a ChatGPT-side ID for *this specific GPT*, not
+   for the Action or for your Azure Function. It's where **Microsoft** (not
+   your proxy) redirects the user's browser back to *ChatGPT's own servers*
+   after they sign in and consent — ChatGPT then exchanges the returned
+   authorization code for an access token behind the scenes and uses that
+   token on every Action call it makes to your proxy afterwards.
+
+   The full flow, end to end:
+
+   ```
+   1. User (in ChatGPT) asks something that needs OneNote
+   2. ChatGPT redirects the browser to the Authorization URL
+      (login.microsoftonline.com/.../authorize)
+   3. User signs in with their Microsoft account and consents
+      to Notes.ReadWrite + offline_access
+   4. Microsoft redirects the browser back to the callback URL
+      https://chat.openai.com/aip/g-.../oauth/callback?code=...
+   5. ChatGPT exchanges that code for an access token by calling
+      the Token URL (login.microsoftonline.com/.../token), using
+      the Client ID + Client Secret you configured
+   6. ChatGPT stores the token and attaches it as
+      "Authorization: Bearer <token>" on every subsequent call to
+      this proxy (e.g. GET /v1.0/me/onenote/notebooks)
+   7. This proxy just forwards that header straight through to
+      Microsoft Graph — it never sees the Client Secret and never
+      handles the OAuth exchange itself
+   ```
+
+   Why it must be registered on the Entra app: Microsoft Entra only redirects
+   back to URIs it was explicitly told to trust (the **redirect URI**
+   allowlist). If `https://chat.openai.com/aip/g-.../oauth/callback` isn't on
+   that list, sign-in fails with `AADSTS50011` (see
+   [Troubleshooting](#troubleshooting)) — Microsoft refuses to send the
+   authorization code anywhere it doesn't recognize, which is what stops a
+   malicious site from intercepting it.
+
+   Two things worth knowing:
+
+   - **It's per-GPT, not per-Action-config.** If you delete this GPT (or its
+     Action) and recreate it, ChatGPT generates a *new* `g-...` id and thus a
+     *new* callback URL — the old one stays registered on the Entra app
+     (harmless, but you should add the new one too) and sign-in breaks until
+     you do.
+   - **It's not a secret.** It's a public redirect target, safe to commit —
+     unlike the Client Secret, which must never be committed. This repo's
+     concrete callback URL is captured in
+     [openapi.notebuddy-gpt.yaml](openapi.notebuddy-gpt.yaml) for reference.
 
 5. Test the connection with a read-only prompt first (forces the OAuth
    consent screen), then a write prompt:
