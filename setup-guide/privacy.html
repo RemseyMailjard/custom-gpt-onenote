@@ -1,0 +1,368 @@
+<title>OneNote Assistant Privacy Policy</title>
+<style>
+  :root {
+    --paper: #faf9fc;
+    --paper-raised: #ffffff;
+    --ink: #201a29;
+    --ink-soft: #5a5266;
+    --line: #e2dce9;
+    --accent: #7719aa;
+    --accent-soft: #f3e9f9;
+    --code-bg: #f1eef6;
+    --code-ink: #3d2b4d;
+    --ok-bg: #eaf6ee;
+    --ok-ink: #1e6b37;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16121d;
+      --paper-raised: #1e1826;
+      --ink: #f1edf7;
+      --ink-soft: #b3a9c2;
+      --line: #34293f;
+      --accent: #c98ee8;
+      --accent-soft: #2a1f38;
+      --code-bg: #1f1729;
+      --code-ink: #ecd9fa;
+      --ok-bg: #12291b;
+      --ok-ink: #7cd99a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #16121d;
+    --paper-raised: #1e1826;
+    --ink: #f1edf7;
+    --ink-soft: #b3a9c2;
+    --line: #34293f;
+    --accent: #c98ee8;
+    --accent-soft: #2a1f38;
+    --code-bg: #1f1729;
+    --code-ink: #ecd9fa;
+    --ok-bg: #12291b;
+    --ok-ink: #7cd99a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+  }
+
+  header.hero { margin-bottom: 1.5rem; }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  h1 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: clamp(1.7rem, 4vw, 2.3rem);
+    line-height: 1.15;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+  }
+
+  .meta {
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+  }
+
+  nav.toc {
+    margin-top: 2rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    padding: 1.1rem 1.4rem;
+  }
+
+  nav.toc p {
+    margin: 0 0 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  nav.toc ol {
+    margin: 0;
+    padding-left: 1.15rem;
+    columns: 2;
+    font-size: 0.88rem;
+  }
+
+  nav.toc li { margin-bottom: 0.35rem; break-inside: avoid; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  main {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.25rem;
+  }
+
+  section {
+    scroll-margin-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    padding-top: 2rem;
+  }
+
+  section:first-child { border-top: none; padding-top: 0; }
+
+  h2 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+  }
+
+  p { margin: 0 0 0.85rem; font-size: 0.95rem; }
+  p:last-child { margin-bottom: 0; }
+
+  ul { margin: 0 0 0.85rem; padding-left: 1.2rem; font-size: 0.95rem; }
+  ul:last-child { margin-bottom: 0; }
+  li { margin-bottom: 0.4rem; }
+  li:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 0.1em 0.4em;
+    border-radius: 0.3em;
+    font-size: 0.88em;
+  }
+
+  a { color: var(--accent); }
+
+  .scope-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+
+  .scope-table tr { border-bottom: 1px solid var(--line); }
+  .scope-table tr:last-child { border-bottom: none; }
+  .scope-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 0.6rem 0.9rem 0.6rem 0;
+    white-space: nowrap;
+    vertical-align: top;
+  }
+  .scope-table td { padding: 0.6rem 0; }
+
+  .callout {
+    border-radius: 0.6rem;
+    padding: 1rem 1.15rem;
+    font-size: 0.92rem;
+    background: var(--ok-bg);
+    color: var(--ok-ink);
+  }
+  .callout strong { display: block; margin-bottom: 0.25rem; font-size: 0.95rem; }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+
+  @media (max-width: 28rem) {
+    nav.toc ol { columns: 1; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="hero">
+    <span class="eyebrow">Privacy policy</span>
+    <h1>OneNote Assistant — Privacy Policy</h1>
+    <p class="meta">Last updated 17 August 2026 · Applies to the “OneNote Assistant” custom GPT and its OneNote Action</p>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <p>On this page</p>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#data-accessed">Data the Action accesses</a></li>
+      <li><a href="#data-stored">What we store</a></li>
+      <li><a href="#third-parties">Third parties involved</a></li>
+      <li><a href="#retention">Data retention</a></li>
+      <li><a href="#your-controls">Your controls</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#children">Children's privacy</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section id="overview">
+      <h2>Overview</h2>
+      <p>
+        OneNote Assistant is a custom GPT that lets you manage your Microsoft
+        OneNote notebooks from within ChatGPT. It works through a small proxy
+        service (<code>remsey-onenote-proxy-z3oh.azurewebsites.net</code>) that
+        sits between ChatGPT and the Microsoft Graph API — it exists only to
+        reformat requests into the shape Microsoft Graph expects, not to
+        collect data.
+      </p>
+      <p>
+        This policy explains what the Action can see, what — if anything — is
+        stored outside of Microsoft's own systems, and how you can revoke
+        access at any time.
+      </p>
+    </section>
+
+    <section id="data-accessed">
+      <h2>Data the Action accesses</h2>
+      <p>
+        When you sign in with your Microsoft work or school account, you grant
+        the Action the following delegated Microsoft Graph permissions:
+      </p>
+      <table class="scope-table">
+        <tr>
+          <th><code>Notes.ReadWrite</code></th>
+          <td>Read, create, edit, and delete pages, sections, and notebooks in your own OneNote.</td>
+        </tr>
+        <tr>
+          <th><code>offline_access</code></th>
+          <td>Keep you signed in between conversations, instead of asking you to reauthorize every session.</td>
+        </tr>
+      </table>
+      <p style="margin-top:0.9rem;">
+        These permissions only ever reach your own OneNote content — never
+        another user's. The Action cannot read your email, calendar, files, or
+        any other Microsoft 365 data; Microsoft Graph grants each permission
+        individually per app, and none beyond the two above are requested.
+      </p>
+    </section>
+
+    <section id="data-stored">
+      <h2>What we store</h2>
+      <div class="callout">
+        <strong>Nothing, by design.</strong>
+        The proxy is stateless: it has no database. Each request is forwarded
+        to Microsoft Graph and the response is returned as-is, in the same
+        call.
+      </div>
+      <p style="margin-top:1rem;">Specifically:</p>
+      <ul>
+        <li>Your OneNote content (notebooks, sections, pages, page HTML) passes through the proxy in memory only, for the duration of a single request, and is never written to disk or a database.</li>
+        <li>Your Microsoft access and refresh tokens are forwarded from ChatGPT to Microsoft Graph on each call; the proxy does not persist them.</li>
+        <li>ChatGPT itself retains your conversation history according to <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI's privacy policy</a>, independent of this Action.</li>
+      </ul>
+    </section>
+
+    <section id="third-parties">
+      <h2>Third parties involved</h2>
+      <p>Two other parties are necessarily involved whenever you use this Action:</p>
+      <ul>
+        <li><strong>Microsoft</strong> — as the identity provider (Entra ID) and the owner of the OneNote data itself (Microsoft Graph). Your sign-in and data are governed by the <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener">Microsoft Privacy Statement</a>.</li>
+        <li><strong>OpenAI</strong> — as the platform running ChatGPT and the custom GPT interface. Your conversations are governed by <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener">OpenAI's Privacy Policy</a>.</li>
+      </ul>
+      <p>No data is shared with any party beyond these two — there are no analytics services, advertising SDKs, or additional data processors in the request path.</p>
+    </section>
+
+    <section id="retention">
+      <h2>Data retention</h2>
+      <p>
+        Because the proxy stores nothing, there is no retention period to
+        describe on our end. The Azure hosting platform (Azure Functions)
+        keeps standard operational logs — timestamps, HTTP status codes, and
+        response times — for a limited period, for diagnosing outages. These
+        logs do not include your OneNote content or access tokens.
+      </p>
+    </section>
+
+    <section id="your-controls">
+      <h2>Your controls</h2>
+      <p>You can revoke this Action's access at any time:</p>
+      <ul>
+        <li>Go to <a href="https://myaccount.microsoft.com/" target="_blank" rel="noopener">myaccount.microsoft.com</a> → Privacy → <em>Apps and services</em>, find “OneNote CustomGPT Action”, and remove access.</li>
+        <li>Or, within ChatGPT, open this GPT's settings and disconnect the Action's authentication.</li>
+      </ul>
+      <p>Revoking access immediately invalidates the Action's ability to reach your OneNote — nothing further needs to be deleted, since nothing was retained.</p>
+    </section>
+
+    <section id="security">
+      <h2>Security</h2>
+      <p>
+        All traffic between ChatGPT, the proxy, and Microsoft Graph is
+        encrypted with HTTPS/TLS. Authentication uses Microsoft's standard
+        OAuth 2.0 authorization code flow — your Microsoft password is never
+        seen by the Action or the proxy, only by Microsoft's own sign-in page.
+      </p>
+    </section>
+
+    <section id="children">
+      <h2>Children's privacy</h2>
+      <p>
+        This Action is intended for use by individuals with an existing
+        Microsoft work or school account and is not directed at children. It
+        does not knowingly collect data from children.
+      </p>
+    </section>
+
+    <section id="changes">
+      <h2>Changes to this policy</h2>
+      <p>
+        If what the Action accesses or how it's operated changes materially,
+        this page will be updated and the “Last updated” date above revised
+        accordingly.
+      </p>
+    </section>
+
+    <section id="contact">
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy or how the Action handles your data:
+        <a href="mailto:remsey@skills4-it.nl">remsey@skills4-it.nl</a>.
+      </p>
+    </section>
+
+  </main>
+
+  <footer>
+    OneNote Assistant is an independent project and is not affiliated with or
+    endorsed by Microsoft or OpenAI.
+  </footer>
+
+</div>

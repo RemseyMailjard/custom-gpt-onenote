@@ -1,0 +1,1304 @@
+<title>Build the OneNote GPT</title>
+<style>
+  :root {
+    --paper: #faf9fc;
+    --paper-raised: #ffffff;
+    --ink: #201a29;
+    --ink-soft: #5a5266;
+    --line: #e2dce9;
+    --rule: #ece5f2;
+    --accent: #7719aa;
+    --accent-ink: #ffffff;
+    --accent-soft: #f3e9f9;
+    --code-bg: #f1eef6;
+    --code-ink: #3d2b4d;
+    --ok-bg: #eaf6ee;
+    --ok-ink: #1e6b37;
+    --warn-bg: #fdf3e3;
+    --warn-ink: #8a5a06;
+    --focus: #4d3ccf;
+    --tab-purple: #7719aa;
+    --tab-magenta: #c7215c;
+    --tab-teal: #038387;
+    --tab-orange: #ca5010;
+    --tab-green: #0b6a0b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #16121d;
+      --paper-raised: #1e1826;
+      --ink: #f1edf7;
+      --ink-soft: #b3a9c2;
+      --line: #34293f;
+      --rule: #241d2d;
+      --accent: #c98ee8;
+      --accent-ink: #241633;
+      --accent-soft: #2a1f38;
+      --code-bg: #1f1729;
+      --code-ink: #ecd9fa;
+      --ok-bg: #12291b;
+      --ok-ink: #7cd99a;
+      --warn-bg: #2e230c;
+      --warn-ink: #e3ab4c;
+      --focus: #b3a2ff;
+      --tab-purple: #d7a6ee;
+      --tab-magenta: #ed7aa8;
+      --tab-teal: #4fc7c9;
+      --tab-orange: #e8965a;
+      --tab-green: #7cd99a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #16121d;
+    --paper-raised: #1e1826;
+    --ink: #f1edf7;
+    --ink-soft: #b3a9c2;
+    --line: #34293f;
+    --rule: #241d2d;
+    --accent: #c98ee8;
+    --accent-ink: #241633;
+    --accent-soft: #2a1f38;
+    --code-bg: #1f1729;
+    --code-ink: #ecd9fa;
+    --ok-bg: #12291b;
+    --ok-ink: #7cd99a;
+    --warn-bg: #2e230c;
+    --warn-ink: #e3ab4c;
+    --focus: #b3a2ff;
+    --tab-purple: #d7a6ee;
+    --tab-magenta: #ed7aa8;
+    --tab-teal: #4fc7c9;
+    --tab-orange: #e8965a;
+    --tab-green: #7cd99a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(
+        var(--paper) 0,
+        var(--paper) 2.35rem,
+        var(--rule) 2.35rem,
+        var(--rule) calc(2.35rem + 1px)
+      );
+    background-attachment: local;
+    color: var(--ink);
+    font-family: "Segoe UI", ui-sans-serif, system-ui, Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+
+  .page {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+  }
+
+  header.hero { margin-bottom: 2.75rem; }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1rem;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  h1 {
+    font-family: "Segoe UI Semibold", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    line-height: 1.15;
+    margin: 0 0 0.9rem;
+    text-wrap: balance;
+  }
+
+  .lede {
+    font-size: 1.05rem;
+    color: var(--ink-soft);
+    max-width: 38rem;
+    margin: 0;
+  }
+
+  h2 {
+    font-family: "Segoe UI Semibold", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    font-size: 1.35rem;
+    margin: 0 0 0.25rem;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+  }
+
+  p { margin: 0 0 0.9rem; }
+  p:last-child { margin-bottom: 0; }
+
+  code {
+    font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 0.1em 0.4em;
+    border-radius: 0.3em;
+    font-size: 0.88em;
+  }
+
+  .checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    padding: 1.25rem 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .checklist li { font-size: 0.92rem; }
+  .checklist ul { margin: 0; padding-left: 1.1rem; }
+
+  section.steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 1rem;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 2.75rem 1fr;
+    gap: 1.25rem;
+    padding: 1.85rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .step-num {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Segoe UI Semibold", "Segoe UI", sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-ink);
+    background: var(--step-color, var(--accent));
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  .step:nth-child(5n+1) { --step-color: var(--tab-purple); }
+  .step:nth-child(5n+2) { --step-color: var(--tab-magenta); }
+  .step:nth-child(5n+3) { --step-color: var(--tab-teal); }
+  .step:nth-child(5n+4) { --step-color: var(--tab-orange); }
+  .step:nth-child(5n+5) { --step-color: var(--tab-green); }
+
+  .step-body > *:not(:last-child) { margin-bottom: 0.9rem; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 0.6rem 1.1rem;
+    border-radius: 0.55rem;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .btn:hover { opacity: 0.88; }
+  .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+  }
+
+  .field {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: var(--code-bg);
+  }
+
+  .field code {
+    flex: 1;
+    background: transparent;
+    padding: 0.65rem 0.8rem;
+    border-radius: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-size: 0.82rem;
+  }
+
+  .copy-btn {
+    border: none;
+    border-left: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover { color: var(--accent); }
+  .copy-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .copy-btn[data-copied="true"] { color: var(--ok-ink); }
+
+  .kv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    margin-top: 0.25rem;
+  }
+
+  .kv-table tr { border-bottom: 1px solid var(--line); }
+  .kv-table tr:last-child { border-bottom: none; }
+
+  .kv-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 0.55rem 0.9rem 0.55rem 0;
+    white-space: nowrap;
+    vertical-align: top;
+    width: 9.5rem;
+  }
+
+  .kv-table td { padding: 0.55rem 0; }
+  .kv-table td .field { margin: 0; }
+
+  .callout {
+    border-radius: 0.6rem;
+    padding: 1rem 1.15rem;
+    font-size: 0.92rem;
+  }
+
+  .callout.warn { background: var(--warn-bg); color: var(--warn-ink); }
+  .callout.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .callout.note { background: var(--accent-soft); color: var(--ink); }
+
+  .callout strong { display: block; margin-bottom: 0.25rem; font-size: 0.95rem; }
+
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin: 3.5rem 0 1.75rem;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .divider-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .admin-card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 0.85rem;
+    padding: 1.75rem;
+  }
+
+  .config-block {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 0.9rem;
+    padding: 2rem;
+    margin-top: 3rem;
+  }
+
+  .config-block .eyebrow { margin-bottom: 0.6rem; }
+  .config-block h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .config-block > p.intro { color: var(--ink-soft); max-width: 34rem; }
+  .config-block .instructions-box,
+  .config-block .schema-box { margin-top: 1.25rem; }
+
+  .config-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    margin: 2.5rem 0 0;
+    color: var(--ink-soft);
+  }
+
+  .config-divider::before,
+  .config-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .config-divider span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .admin-card p.small { font-size: 0.88rem; color: var(--ink-soft); }
+
+  .admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.1rem;
+  }
+
+  .instructions-box {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 0.6rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .instructions-box pre {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    color: var(--code-ink);
+    line-height: 1.6;
+  }
+
+  .instructions-box .copy-btn {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: 0.4rem;
+    background: var(--paper-raised);
+  }
+
+  .schema-box {
+    position: relative;
+  }
+
+  .schema-box textarea {
+    width: 100%;
+    height: 9rem;
+    resize: vertical;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border: 1px solid var(--line);
+    border-radius: 0.6rem;
+    padding: 0.9rem 1rem;
+    font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.76rem;
+    line-height: 1.5;
+  }
+
+  .schema-box .copy-btn {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: 0.4rem;
+    background: var(--paper-raised);
+    z-index: 1;
+  }
+
+  .permissions-list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .permissions-list li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.15rem 0.7rem;
+    align-items: baseline;
+    font-size: 0.9rem;
+  }
+
+  .permissions-list code { justify-self: start; }
+  .permissions-list span { color: var(--ink-soft); }
+
+  details.faq {
+    border-bottom: 1px solid var(--line);
+    padding: 1rem 0;
+  }
+
+  details.faq:first-of-type { border-top: 1px solid var(--line); }
+
+  details.faq summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.96rem;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  details.faq summary::-webkit-details-marker { display: none; }
+
+  details.faq summary::after {
+    content: "+";
+    font-size: 1.2rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  details.faq[open] summary::after { transform: rotate(45deg); }
+
+  details.faq p { margin-top: 0.7rem; color: var(--ink-soft); font-size: 0.92rem; }
+
+  footer {
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+
+  footer a { color: var(--accent); }
+
+  @media (max-width: 30rem) {
+    .step { grid-template-columns: 2rem 1fr; gap: 0.85rem; }
+    .step-num { font-size: 1.1rem; }
+    .kv-table th { width: auto; display: block; padding-bottom: 0.2rem; }
+    .kv-table td { display: block; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="hero">
+    <span class="eyebrow">Builder's guide</span>
+    <h1>Build your own OneNote GPT</h1>
+    <p class="lede">
+      A complete, from-scratch walkthrough for ChatGPT Plus/Team/Enterprise users:
+      create the GPT, write its instructions, wire up the OneNote Action, and
+      configure OAuth — using the values below.
+    </p>
+    <div class="checklist">
+      <strong style="font-size:0.85rem;">Before you start, you need:</strong>
+      <ul>
+        <li>A ChatGPT <strong>Plus, Team, or Enterprise</strong> plan (Actions aren't available on the free plan)</li>
+        <li>The <strong>Client ID</strong> and <strong>Client Secret</strong> for this app — request the secret from your admin, it's not published on this page</li>
+        <li>10 minutes</li>
+      </ul>
+    </div>
+  </header>
+
+  <section class="steps">
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Create a new GPT</h3>
+        <p>In ChatGPT, go to <strong>Explore GPTs → Create</strong> (top right). Skip the chat-based builder and switch straight to the <strong>Configure</strong> tab — it's faster to fill in directly.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Name and describe it</h3>
+        <p>Under <strong>Name</strong> and <strong>Description</strong>, enter something a teammate would recognize at a glance:</p>
+        <div class="field"><code>OneNote Assistant</code><button class="copy-btn" onclick="copyPlain('OneNote Assistant', this)">Copy</button></div>
+        <div class="field"><code>Reads and writes your OneNote notebooks — search pages, create notes, and update content in plain language.</code><button class="copy-btn" onclick="copyPlain('Reads and writes your OneNote notebooks — search pages, create notes, and update content in plain language.', this)">Copy</button></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Write the Instructions</h3>
+        <p>Paste the model instructions into the <strong>Instructions</strong> field on the Configure tab. The full text — ready to copy — is in its own section below: <a href="#instructions-section">jump to Custom Instructions ↓</a>.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Add the Action</h3>
+        <p>Scroll to <strong>Actions</strong> → <strong>Create new action</strong>. Under <strong>Schema</strong>, delete the placeholder text and paste the full OpenAPI schema — also in its own section below: <a href="#schema-section">jump to OpenAPI Schema ↓</a>.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="config-block" id="instructions-section">
+    <span class="eyebrow">Field 1 of 2</span>
+    <h2>Custom Instructions</h2>
+    <p class="intro">Goes in the GPT's <strong>Instructions</strong> field on the Configure tab. It defines what the Action can do and how the model should behave — adjust tone or add house rules freely.</p>
+    <div class="instructions-box">
+      <pre id="gpt-instructions">You are OneNote Assistant, a helper that reads and writes the signed-in user's Microsoft OneNote through the connected Action.
+
+Capabilities:
+- List notebooks, sections, and pages.
+- Search pages by title or content.
+- Read a page's full content.
+- Create a new page from HTML (the <title> becomes the page title).
+- Update an existing page by appending, inserting, prepending, replacing, or deleting content.
+- Delete a page.
+- Create a new notebook.</pre>
+      <button class="copy-btn" onclick="copyPre('gpt-instructions', this)">Copy</button>
+    </div>
+  </div>
+
+  <div class="config-divider"><span>Separate field — do not combine</span></div>
+
+  <div class="config-block" id="schema-section">
+    <span class="eyebrow">Field 2 of 2</span>
+    <h2>OpenAPI Schema</h2>
+    <p class="intro">Goes in the Action's <strong>Schema</strong> field — a completely different box from Instructions above. Paste the block below, or download the file and upload/paste its contents instead.</p>
+    <div class="schema-box">
+      <textarea id="gpt-schema" readonly onclick="this.select()">
+openapi: 3.1.0
+info:
+  title: OneNote via Microsoft Graph (Proxy)
+  description: >
+    Proxy in front of Microsoft Graph v1.0 for reading and writing OneNote
+    notebooks, sections and pages of the signed-in user. The proxy forwards
+    the caller's Authorization header straight through to Microsoft Graph,
+    so a valid Microsoft Entra ID (Azure AD) delegated access token with
+    OneNote permissions is required on every call.
+
+    Note: creating a page (POST .../sections/{sectionId}/pages) accepts a
+    plain JSON body with a `content` field containing full HTML, and updating
+    a page's content (PATCH .../pages/{pageId}/content) accepts a plain JSON
+    body with a `commands` array; the proxy converts both to the
+    multipart/form-data format Microsoft Graph requires. All other
+    operations are transparent pass-through to Microsoft Graph.
+  version: 1.0.0
+servers:
+  - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net
+    description: Production (Azure Functions, Linux Consumption)
+
+security:
+  - oneNoteOAuth:
+      - Notes.ReadWrite
+      - offline_access
+
+paths:
+  /v1.0/me/onenote/notebooks:
+    get:
+      operationId: listNotebooks
+      summary: List the signed-in user's OneNote notebooks
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of notebooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createNotebook
+      summary: Create a new OneNote notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new notebook
+                  example: Project X
+      responses:
+        '201':
+          description: Notebook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notebook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/sections:
+    get:
+      operationId: listSectionsInNotebook
+      summary: List the sections inside a specific notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections:
+    get:
+      operationId: listAllSections
+      summary: List all OneNote sections of the signed-in user (across notebooks)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/sections/{sectionId}/pages:
+    get:
+      operationId: listPagesInSection
+      summary: List the pages inside a specific section
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createPage
+      summary: Create a new page in a section from full HTML
+      description: >
+        Send the complete HTML document as a string in the `content` field.
+        The proxy wraps it in the multipart/form-data format Microsoft Graph
+        requires for one-step page creation, so callers only need plain JSON.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  description: >
+                    Full HTML document for the page, e.g.
+                    "<html><head><title>My title</title></head><body><p>Hello</p></body></html>".
+                    The <title> becomes the page title in OneNote.
+                  example: "<html><head><title>Meeting notes</title></head><body><p>Hello world</p></body></html>"
+      responses:
+        '201':
+          description: Page created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '400':
+          description: Missing or invalid JSON body, or missing `content` field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/pages:
+    get:
+      operationId: listPages
+      summary: List all OneNote pages of the signed-in user (across sections)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+        - name: search
+          in: query
+          description: Free-text search across page titles/content (OData $search)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/pages/{pageId}:
+    get:
+      operationId: getPage
+      summary: Get metadata for a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+      responses:
+        '200':
+          description: Page metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deletePage
+      summary: Delete a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      responses:
+        '204':
+          description: Page deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/content:
+    get:
+      operationId: getPageContent
+      summary: Get the full HTML content of a page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      responses:
+        '200':
+          description: HTML content of the page
+          content:
+            text/html:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updatePageContent
+      summary: Update the content of an existing page
+      description: >
+        Send one or more commands describing how to modify the page's HTML.
+        The proxy wraps them in the multipart/form-data "Commands" part
+        Microsoft Graph requires, so callers only need plain JSON.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commands]
+              properties:
+                commands:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/PageContentCommand'
+              example:
+                commands:
+                  - target: body
+                    action: append
+                    content: "<p>Extra note added later.</p>"
+      responses:
+        '204':
+          description: Page content updated
+        '400':
+          description: Missing or invalid JSON body, or missing/empty `commands` array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    oneNoteOAuth:
+      type: oauth2
+      description: >
+        Configure Client ID / Client Secret in ChatGPT's Action ->
+        Authentication panel (OAuth), not in this file.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/token
+          scopes:
+            Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
+            offline_access: Keep access when the user is not present (refresh token)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Authorization header / token rejected by Microsoft Graph
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    Notebook:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        isDefault:
+          type: boolean
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    NotebookCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notebook'
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        pagesUrl:
+          type: string
+
+    SectionCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+
+    Page:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        contentUrl:
+          type: string
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    PageCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Page'
+
+    PageContentCommand:
+      type: object
+      required: [target, action]
+      properties:
+        target:
+          type: string
+          description: Element to modify — "body", or the data-id of an existing element on the page
+          example: body
+        action:
+          type: string
+          enum: [append, insert, prepend, replace, delete]
+          description: How to apply this command relative to the target
+        position:
+          type: string
+          enum: [before, after]
+          description: Used together with action "insert" to position content relative to target
+        content:
+          type: string
+          description: HTML fragment to insert/append/prepend/replace with. Not used for action "delete".
+
+</textarea>
+      <button class="copy-btn" onclick="copyTextarea('gpt-schema', this)">Copy</button>
+    </div>
+    <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:0.9rem;">
+      ChatGPT reads the schema and lists the available operations automatically — you don't need to configure them individually.
+      <a href="openapi.notebuddy-gpt.yaml" download>Download the schema as .yaml ↓</a>
+    </p>
+  </div>
+
+  <section class="steps" style="border-top:none; margin-top:0;">
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h3>Set Authentication to OAuth</h3>
+        <p>Click the gear icon next to the schema (or <strong>Authentication</strong>) and choose <strong>OAuth</strong>. Fill in exactly these values:</p>
+        <table class="kv-table">
+          <tr>
+            <th>Client ID</th>
+            <td><div class="field"><code id="v-client-id">08bf9389-78e4-4d76-9c68-fa1fee334bf9</code><button class="copy-btn" onclick="copyText('v-client-id', this)">Copy</button></div></td>
+          </tr>
+          <tr>
+            <th>Client Secret</th>
+            <td>Request this from your admin — see the callout below. Don't paste it into anything other than this ChatGPT field.</td>
+          </tr>
+          <tr>
+            <th>Authorization URL</th>
+            <td><div class="field"><code id="v-auth-url">https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize</code><button class="copy-btn" onclick="copyText('v-auth-url', this)">Copy</button></div></td>
+          </tr>
+          <tr>
+            <th>Token URL</th>
+            <td><div class="field"><code id="v-token-url">https://login.microsoftonline.com/organizations/oauth2/v2.0/token</code><button class="copy-btn" onclick="copyText('v-token-url', this)">Copy</button></div></td>
+          </tr>
+          <tr>
+            <th>Scope</th>
+            <td><div class="field"><code id="v-scope">Notes.ReadWrite offline_access</code><button class="copy-btn" onclick="copyText('v-scope', this)">Copy</button></div></td>
+          </tr>
+          <tr>
+            <th>Token Exchange Method</th>
+            <td>Default (POST request)</td>
+          </tr>
+        </table>
+        <div class="callout note">
+          <strong>Where do I get the Client Secret?</strong>
+          It isn't published here on purpose — anyone with it could authenticate as this app. Ask your admin for it directly (chat, not email) the first time you build a GPT; after that you can reuse the same value for future GPTs you create.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h3>Save — and register your callback URL</h3>
+        <p>Click <strong>Save</strong> in the top right. ChatGPT will now show a <strong>Callback URL</strong> in the Authentication panel, shaped like:</p>
+        <div class="field"><code>https://chat.openai.com/aip/g-&lt;your-gpt-id&gt;/oauth/callback</code></div>
+        <div class="callout warn">
+          <strong>This step is required before sign-in will work</strong>
+          Every GPT gets a unique callback URL. It has to be added to the Azure app registration's redirect URIs before anyone can sign in — including you, when you test it. Copy that URL and send it to your admin to whitelist; it's a one-line addition on their end.
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h3>Test the Action</h3>
+        <p>Back in the Configure tab, click <strong>Test</strong> next to any operation (e.g. <code>listNotebooks</code>). ChatGPT will prompt you to sign in with Microsoft — use your work or school account. Once you approve, the test call should return your notebooks as JSON.</p>
+        <p style="font-size:0.85rem; color:var(--ink-soft);">If sign-in fails with a redirect error, your callback URL from step 6 hasn't been whitelisted yet.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <h3>Add a privacy policy link</h3>
+        <p>ChatGPT requires a <strong>Privacy Policy</strong> URL for any GPT with an authenticated Action, in the field below the Actions section. Use your organization's existing privacy policy, or a page describing what this Action accesses (see "What this app can access" below for the wording).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">9</div>
+      <div class="step-body">
+        <h3>Choose who can see it, then publish</h3>
+        <p>Top right → <strong>Save</strong> → pick a visibility: <strong>Only me</strong> while testing, <strong>Anyone with the link</strong> to share with specific people, or your workspace's GPT store if you're on Team/Enterprise. You can change this later.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="divider-label">What this app can access</div>
+
+  <p>The Action requests exactly two Microsoft Graph permissions — nothing beyond OneNote:</p>
+  <ul class="permissions-list">
+    <li><code>Notes.ReadWrite</code><span>Read and create/edit pages, sections and notebooks in the signed-in user's OneNote — only theirs, never anyone else's.</span></li>
+    <li><code>offline_access</code><span>Keeps the user signed in between conversations, so they don't have to reauthorize every time.</span></li>
+  </ul>
+  <p style="margin-top:0.9rem; font-size:0.88rem; color:var(--ink-soft);">
+    It cannot read email, calendar, files, or any other Microsoft 365 data — Graph permissions are granted individually per app. Every request runs as the signed-in user's own token, so one person's GPT can never see another person's notebooks.
+  </p>
+
+  <div class="divider-label">If sign-in shows "Need admin approval"</div>
+
+  <div class="admin-card">
+    <h2>One-time approval per organization</h2>
+    <p class="small">
+      Some organizations disable individual user consent to third-party apps.
+      If a tester in a given company sees this error, forward the link below
+      to that company's Microsoft 365 / Entra ID administrator — they only
+      need to approve it once, and everyone in their organization can then
+      sign in normally.
+    </p>
+    <div class="field">
+      <code id="consent-url">https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=08bf9389-78e4-4d76-9c68-fa1fee334bf9&amp;redirect_uri=https://chat.openai.com/aip/oauth/callback</code>
+      <button class="copy-btn" onclick="copyText('consent-url', this)">Copy</button>
+    </div>
+    <div class="admin-actions">
+      <a class="btn" href="https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=08bf9389-78e4-4d76-9c68-fa1fee334bf9&redirect_uri=https://chat.openai.com/aip/oauth/callback">Grant admin consent ↗</a>
+    </div>
+    <div class="callout warn" style="margin-top:1.25rem;">
+      <strong>Only works for tenant admins</strong>
+      Requires Global Administrator or Application Administrator rights in that organization's Entra ID. Forward the link rather than clicking it yourself unless you hold that role there.
+    </div>
+  </div>
+
+  <div class="divider-label">Common questions</div>
+
+  <details class="faq">
+    <summary>Do I need my own Azure app registration?</summary>
+    <p>No. Everyone building a GPT against this Action reuses the same Client ID and Client Secret above — only the callback URL differs per GPT, and that's what needs whitelisting in step 6.</p>
+  </details>
+
+  <details class="faq">
+    <summary>Can I duplicate someone else's GPT instead of building from scratch?</summary>
+    <p>Duplicating copies the schema and instructions, but not the OAuth credentials or the callback whitelist — you'll still need to redo steps 5 and 6 for your copy.</p>
+  </details>
+
+  <details class="faq">
+    <summary>Can I use my personal Microsoft account to test?</summary>
+    <p>No. The app is registered for work and school accounts only (Microsoft Entra ID). Personal <code>outlook.com</code>, <code>hotmail.com</code>, and <code>live.com</code> accounts aren't accepted.</p>
+  </details>
+
+  <details class="faq">
+    <summary>The server URL in the schema — can I point it elsewhere?</summary>
+    <p>No, leave it as <code>https://remsey-onenote-proxy-z3oh.azurewebsites.net</code>. That proxy is what translates plain JSON into the multipart format Microsoft Graph requires for page creation and updates; calling Graph directly would break those two operations.</p>
+  </details>
+
+  <footer>
+    Stuck on a step, or need the Client Secret / callback whitelisted? Contact your workspace administrator.
+  </footer>
+
+</div>
+
+<script>
+  function flash(btn) {
+    var original = btn.textContent;
+    btn.textContent = "Copied";
+    btn.dataset.copied = "true";
+    setTimeout(function () {
+      btn.textContent = original;
+      btn.removeAttribute("data-copied");
+    }, 1600);
+  }
+  function copyText(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(function () { flash(btn); });
+  }
+  function copyPre(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).textContent).then(function () { flash(btn); });
+  }
+  function copyTextarea(id, btn) {
+    navigator.clipboard.writeText(document.getElementById(id).value).then(function () { flash(btn); });
+  }
+  function copyPlain(text, btn) {
+    navigator.clipboard.writeText(text).then(function () { flash(btn); });
+  }
+</script>
