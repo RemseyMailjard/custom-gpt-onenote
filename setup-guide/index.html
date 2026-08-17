@@ -75,6 +75,78 @@
   }
 
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  .tab-strip {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    gap: 0.3rem;
+    overflow-x: auto;
+    padding: 0.7rem 1.25rem 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .tab-strip::-webkit-scrollbar { display: none; }
+
+  .tab-strip .tab {
+    flex: none;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    padding: 0.55rem 1rem 0.6rem;
+    border-radius: 0.6rem 0.6rem 0 0;
+    box-shadow: 0 3px 0 var(--tab-color, var(--accent)) inset;
+    white-space: nowrap;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .tab-strip .tab:hover { color: var(--ink); background: var(--accent-soft); }
+  .tab-strip .tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .tab-strip .tab-purple { --tab-color: var(--tab-purple); }
+  .tab-strip .tab-magenta { --tab-color: var(--tab-magenta); }
+  .tab-strip .tab-teal { --tab-color: var(--tab-teal); }
+  .tab-strip .tab-orange { --tab-color: var(--tab-orange); }
+  .tab-strip .tab-green { --tab-color: var(--tab-green); }
+
+  .notebook-cover {
+    display: flex;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 0.9rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .cover-spine {
+    flex: none;
+    width: 0.55rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cover-spine span { flex: 1; }
+  .cover-spine span:nth-child(1) { background: var(--tab-purple); }
+  .cover-spine span:nth-child(2) { background: var(--tab-magenta); }
+  .cover-spine span:nth-child(3) { background: var(--tab-teal); }
+  .cover-spine span:nth-child(4) { background: var(--tab-orange); }
+  .cover-spine span:nth-child(5) { background: var(--tab-green); }
+
+  .cover-body { padding: 2.25rem 2.25rem 2.25rem 2rem; }
+
+  .cover-icon {
+    color: var(--accent);
+    margin-bottom: 0.9rem;
+  }
 
   body {
     margin: 0;
@@ -339,14 +411,20 @@
   }
 
   .config-block {
+    position: relative;
     background: var(--paper-raised);
     border: 1px solid var(--line);
+    border-top: 3px solid var(--tab-color, var(--accent));
     border-radius: 0.9rem;
     padding: 2rem;
     margin-top: 3rem;
   }
 
-  .config-block .eyebrow { margin-bottom: 0.6rem; }
+  #instructions-section { --tab-color: var(--tab-magenta); }
+  #schema-section { --tab-color: var(--tab-teal); }
+
+  .config-block .eyebrow { margin-bottom: 0.6rem; color: var(--tab-color, var(--accent)); }
+  .config-block .eyebrow::before { background: var(--tab-color, var(--accent)); }
   .config-block h2 { font-size: 1.5rem; margin-bottom: 0.5rem; }
   .config-block > p.intro { color: var(--ink-soft); max-width: 34rem; }
   .config-block .instructions-box,
@@ -510,23 +588,44 @@
   }
 </style>
 
+<nav class="tab-strip" aria-label="Page sections">
+  <a href="#top" class="tab tab-purple">Get started</a>
+  <a href="#instructions-section" class="tab tab-magenta">Instructions</a>
+  <a href="#schema-section" class="tab tab-teal">Schema</a>
+  <a href="#admin-section" class="tab tab-orange">Admin access</a>
+  <a href="#faq-section" class="tab tab-green">FAQ</a>
+</nav>
+
 <div class="page">
 
-  <header class="hero">
-    <span class="eyebrow">Builder's guide</span>
-    <h1>Build your own OneNote GPT</h1>
-    <p class="lede">
-      A complete, from-scratch walkthrough for ChatGPT Plus/Team/Enterprise users:
-      create the GPT, write its instructions, wire up the OneNote Action, and
-      configure OAuth — using the values below.
-    </p>
-    <div class="checklist">
-      <strong style="font-size:0.85rem;">Before you start, you need:</strong>
-      <ul>
-        <li>A ChatGPT <strong>Plus, Team, or Enterprise</strong> plan (Actions aren't available on the free plan)</li>
-        <li>The <strong>Client ID</strong> and <strong>Client Secret</strong> for this app — request the secret from your admin, it's not published on this page</li>
-        <li>10 minutes</li>
-      </ul>
+  <header class="hero" id="top">
+    <div class="notebook-cover">
+      <div class="cover-spine">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="cover-body">
+        <div class="cover-icon" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+            <rect x="3.5" y="2.5" width="17" height="19" rx="2.2" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M3.5 7h17M3.5 11.5h17M3.5 16h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="eyebrow">Builder's guide</span>
+        <h1>Build your own OneNote GPT</h1>
+        <p class="lede">
+          A complete, from-scratch walkthrough for ChatGPT Plus/Team/Enterprise users:
+          create the GPT, write its instructions, wire up the OneNote Action, and
+          configure OAuth — using the values below.
+        </p>
+        <div class="checklist">
+          <strong style="font-size:0.85rem;">Before you start, you need:</strong>
+          <ul>
+            <li>A ChatGPT <strong>Plus, Team, or Enterprise</strong> plan (Actions aren't available on the free plan)</li>
+            <li>The <strong>Client ID</strong> and <strong>Client Secret</strong> for this app — request the secret from your admin, it's not published on this page</li>
+            <li>10 minutes</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1227,7 +1326,7 @@ components:
     It cannot read email, calendar, files, or any other Microsoft 365 data — Graph permissions are granted individually per app. Every request runs as the signed-in user's own token, so one person's GPT can never see another person's notebooks.
   </p>
 
-  <div class="divider-label">If sign-in shows "Need admin approval"</div>
+  <div class="divider-label" id="admin-section">If sign-in shows "Need admin approval"</div>
 
   <div class="admin-card">
     <h2>One-time approval per organization</h2>
@@ -1251,7 +1350,7 @@ components:
     </div>
   </div>
 
-  <div class="divider-label">Common questions</div>
+  <div class="divider-label" id="faq-section">Common questions</div>
 
   <details class="faq">
     <summary>Do I need my own Azure app registration?</summary>

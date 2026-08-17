@@ -2,6 +2,12 @@
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node"
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "STRIPE_SECRET_KEY": "sk_test_replace_me",
+    "STRIPE_WEBHOOK_SECRET": "whsec_replace_me",
+    "SENDGRID_API_KEY": "",
+    "SENDGRID_FROM_EMAIL": "noreply@example.com",
+    "PROXY_BASE_URL": "https://remsey-onenote-proxy-z3oh.azurewebsites.net",
+    "SETUP_GUIDE_URL": "https://your-site.example/setup-guide/"
   }
 }
