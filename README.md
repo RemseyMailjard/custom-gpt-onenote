@@ -24,9 +24,11 @@ You (in ChatGPT) → Custom GPT → Action (this proxy) → Microsoft Graph → 
 What it currently supports (via Graph, exposed as GPT Action operations):
 
 - List notebooks, sections, pages (`listNotebooks`, `listAllSections`, `listPagesInSection`, ...)
-- Read a page's content (`getPage`, `getPageContent`)
+- Read a page's content as HTML or as clean Markdown (`getPage`, `getPageContent?format=markdown`)
 - Create a notebook or page (`createNotebook`, `createPage`)
 - Update an existing page's content (`updatePageContent`)
+- Add an image or file attachment to a page (`addImageToPage`, `addAttachmentToPage`)
+- Copy or move a page to another section (`copyPageToSection`, `movePage`)
 - Delete a page (`deletePage`)
 
 Authentication is delegated Microsoft sign-in (OAuth via Entra ID) — you only
@@ -356,12 +358,13 @@ agent prompt if you have one covering other Actions too):
 ```
 ## OneNote routing
 
-- For every OneNote request — reading, searching, creating, updating or deleting
-  notebooks, sections or pages — always call the OneNote Graph Proxy Action
-  (`listNotebooks`, `createNotebook`, `listSectionsInNotebook`, `listAllSections`,
-  `listPagesInSection`, `createPage`, `listPages`, `getPage`, `getPageContent`,
-  `updatePageContent`, `deletePage`). Never answer a OneNote question from memory
-  and never invent notebook, section or page names.
+- For every OneNote request — reading, searching, creating, updating, copying,
+  moving or deleting notebooks, sections or pages — always call the OneNote
+  Graph Proxy Action (`listNotebooks`, `createNotebook`, `listSectionsInNotebook`,
+  `listAllSections`, `listPagesInSection`, `createPage`, `listPages`, `getPage`,
+  `getPageContent`, `updatePageContent`, `addImageToPage`, `addAttachmentToPage`,
+  `copyPageToSection`, `movePage`, `deletePage`). Never answer a OneNote question
+  from memory and never invent notebook, section or page names.
 - The user will refer to notebooks, sections and pages by name, not by ID. Resolve
   the exact `id` first with `listNotebooks`, `listSectionsInNotebook`, `listAllSections`
   or `listPagesInSection` (use `$select=id,displayName` or `id,title` to keep the
@@ -370,9 +373,13 @@ agent prompt if you have one covering other Actions too):
 - If more than one notebook, section or page matches closely, present the short
   list of candidates and ask which one is meant instead of guessing.
 - Prefer an existing relevant notebook and section over creating duplicates.
-- To change an existing page, read its content first with `getPageContent`, then
-  call `updatePageContent` with commands describing the change (see below) rather
-  than creating a duplicate page.
+- When reading a page to answer a question, search, or summarize, call
+  `getPageContent` with `format=markdown` — it's cleaner and cheaper in tokens
+  than raw HTML. Only use the default (no `format`, i.e. HTML) when you're about
+  to call `updatePageContent` and need real element `data-id`s.
+- To change an existing page, read its content first with `getPageContent`
+  (default HTML format), then call `updatePageContent` with commands describing
+  the change (see below) rather than creating a duplicate page.
 
 ## Creating OneNote pages (createPage)
 
@@ -410,6 +417,37 @@ agent prompt if you have one covering other Actions too):
 4. A successful update returns 204 with no body — confirm briefly that the
    page was updated. On error, state the error code and likely cause (wrong
    `pageId`, or missing/invalid `commands`).
+
+## Adding images and attachments (addImageToPage / addAttachmentToPage)
+
+1. Call `addImageToPage` with `pageId` and `{"data": "<base64>", "contentType":
+   "image/png", "alt": "optional description", "placement": "append"}` for
+   screenshots, diagrams or slide excerpts. `contentType` must be an `image/*`
+   MIME type.
+2. Call `addAttachmentToPage` with `pageId` and `{"data": "<base64>", "contentType":
+   "application/pdf", "fileName": "handout.pdf", "placement": "append"}` for any
+   other file (PDFs, handouts, documents).
+3. Both accept files up to 25 MB decoded; a larger file returns 413 — tell the
+   user to shrink it. A successful call returns 204 with no body.
+4. Never invent a `pageId`, and never fabricate base64 data — only use file
+   content the user actually provided in the conversation.
+
+## Copying and moving pages (copyPageToSection / movePage)
+
+1. `copyPageToSection` duplicates a page into another section — call it with
+   `pageId` and `{"id": "<destination section id>"}`. Graph processes this
+   asynchronously and returns 202; the copy itself is usually done within
+   seconds, but this Action does not wait for it, so don't claim the copy is
+   finished until the user has confirmed it if that matters.
+2. `movePage` moves a page (copy, verify, then delete the original) — call it
+   with `pageId` and `{"destinationSectionId": "<section id>"}`. It returns 200
+   with `newPageId` once genuinely done. If it returns 202 the copy is still
+   running and the original was **not** deleted — tell the user to retry
+   shortly rather than assuming it worked. On a `502`, the original may still
+   exist unchanged, or (rarely) a duplicate may exist — surface the error
+   message as-is rather than guessing what happened.
+3. Resolve both the page and the destination section's exact `id`s first
+   (never their display names) via the usual list/find operations.
 ```
 
 ### Updating existing page content (updatePageContent)

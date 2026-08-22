@@ -301,7 +301,14 @@ paths:
   /v1.0/me/onenote/pages/{pageId}/content:
     get:
       operationId: getPageContent
-      summary: Get the full HTML content of a page
+      summary: Get the content of a page, as HTML or as clean Markdown
+      description: >
+        Defaults to raw OneNote HTML (needed when you plan to call
+        updatePageContent afterwards and need element `data-id`s). Pass
+        `format=markdown` to instead get a clean, token-efficient Markdown
+        rendering — preferred for reading, searching and summarizing, since
+        it strips OneNote's styling/positioning markup and preserves
+        headings, lists, tables and links.
       parameters:
         - name: pageId
           in: path
@@ -309,11 +316,25 @@ paths:
           schema:
             type: string
           description: The id of the page
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [html, markdown]
+            default: html
+          description: >
+            "html" (default) returns raw OneNote HTML. "markdown" returns a
+            cleaned-up Markdown rendering, better suited for reading/
+            summarizing and cheaper in tokens.
       responses:
         '200':
-          description: HTML content of the page
+          description: Content of the page, in the requested format
           content:
             text/html:
+              schema:
+                type: string
+            text/markdown:
               schema:
                 type: string
         '401':
@@ -365,6 +386,194 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/images:
+    post:
+      operationId: addImageToPage
+      summary: Add an image to an existing page
+      description: >
+        Send image bytes as base64 JSON; the proxy embeds them as an
+        `<img>` element via the multipart/form-data format Microsoft Graph
+        requires, so callers only need plain JSON. Useful for screenshots,
+        architecture diagrams and slide excerpts.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, contentType]
+              properties:
+                data:
+                  type: string
+                  description: Base64-encoded image bytes (max 25 MB decoded)
+                contentType:
+                  type: string
+                  description: Image MIME type, e.g. "image/png"
+                  example: image/png
+                alt:
+                  type: string
+                  description: Optional alt text for the image
+                placement:
+                  type: string
+                  enum: [append, prepend]
+                  default: append
+                  description: Where on the page to insert the image
+      responses:
+        '204':
+          description: Image added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Image exceeds the 25 MB limit
+
+  /v1.0/me/onenote/pages/{pageId}/attachments:
+    post:
+      operationId: addAttachmentToPage
+      summary: Add a file attachment to an existing page
+      description: >
+        Send file bytes as base64 JSON; the proxy embeds them as an
+        `<object data-attachment>` element via the multipart/form-data
+        format Microsoft Graph requires, so callers only need plain JSON.
+        Useful for handouts, PDFs and other course/customer materials.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, contentType, fileName]
+              properties:
+                data:
+                  type: string
+                  description: Base64-encoded file bytes (max 25 MB decoded)
+                contentType:
+                  type: string
+                  description: File MIME type, e.g. "application/pdf"
+                  example: application/pdf
+                fileName:
+                  type: string
+                  description: File name shown in OneNote
+                  example: handout.pdf
+                placement:
+                  type: string
+                  enum: [append, prepend]
+                  default: append
+                  description: Where on the page to insert the attachment
+      responses:
+        '204':
+          description: Attachment added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Attachment exceeds the 25 MB limit
+
+  /v1.0/me/onenote/pages/{pageId}/copyToSection:
+    post:
+      operationId: copyPageToSection
+      summary: Copy a page into another section
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToSection
+        operation. Graph processes this asynchronously and returns 202
+        immediately; the copy itself usually completes within seconds.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/move:
+    post:
+      operationId: movePage
+      summary: Move a page to another section (copy, then delete the original)
+      description: >
+        OneNote/Graph has no native cross-section move, so the proxy copies
+        the page to the destination section, waits for Microsoft to confirm
+        the copy succeeded, and only then deletes the original — the
+        original is never removed unless the copy is confirmed. If the copy
+        is still running after ~20 seconds the proxy returns 202 and leaves
+        the original untouched; retry the request in that case.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page to move
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destinationSectionId]
+              properties:
+                destinationSectionId:
+                  type: string
+                  description: The id of the destination section
+      responses:
+        '200':
+          description: Move completed — page copied and original deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  newPageId:
+                    type: string
+                  deletedOriginal:
+                    type: boolean
+        '202':
+          description: Copy still in progress; original page was not deleted, retry shortly
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          description: >
+            Copy failed (original untouched), or copy succeeded but deleting
+            the original failed (a duplicate page now exists — check
+            newPageId in the error body)
 
 components:
   securitySchemes:
