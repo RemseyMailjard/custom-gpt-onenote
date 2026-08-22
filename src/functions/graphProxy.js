@@ -1,5 +1,4 @@
 const { app } = require('@azure/functions');
-const { getLicense } = require('../lib/licenses');
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const ONENOTE_PAGE_CREATE_PATTERN = /^me\/onenote\/sections\/[^/]+\/pages$/i;
@@ -37,16 +36,10 @@ async function forwardResponse(graphResponse) {
 }
 
 app.http('graphProxy', {
-  route: 'lic/{licenseCode}/v1.0/{*restOfPath}',
+  route: 'v1.0/{*restOfPath}',
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
   authLevel: 'anonymous',
   handler: async (request, context) => {
-    const licenseCode = request.params.licenseCode;
-    const license = await getLicense(licenseCode);
-    if (!license || license.status !== 'active') {
-      return { status: 403, jsonBody: { error: { message: 'Invalid or inactive license.' } } };
-    }
-
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
       return { status: 401, jsonBody: { error: { message: 'Missing Authorization header.' } } };

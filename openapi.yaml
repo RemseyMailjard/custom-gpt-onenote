@@ -16,11 +16,8 @@ info:
     operations are transparent pass-through to Microsoft Graph.
   version: 1.0.0
 servers:
-  - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net/lic/YOUR-LICENSE-CODE
-    description: >
-      Production (Azure Functions, Linux Consumption). Replace
-      YOUR-LICENSE-CODE with the code from your welcome email — each
-      subscriber gets a unique URL here.
+  - url: https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net
+    description: Production (Azure Functions, Linux Consumption).
 
 security:
   - oneNoteOAuth:
