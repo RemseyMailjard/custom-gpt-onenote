@@ -8,7 +8,11 @@ const ONENOTE_PAGE_CONTENT_GET_PATTERN = /^me\/onenote\/pages\/([^/]+)\/content$
 const ONENOTE_PAGE_IMAGE_PATTERN = /^me\/onenote\/pages\/([^/]+)\/images$/i;
 const ONENOTE_PAGE_ATTACHMENT_PATTERN = /^me\/onenote\/pages\/([^/]+)\/attachments$/i;
 const ONENOTE_PAGE_MOVE_PATTERN = /^me\/onenote\/pages\/([^/]+)\/move$/i;
+const ONENOTE_PAGES_LIST_PATTERN = /^me\/onenote\/pages$/i;
+const ONENOTE_SECTION_PAGES_LIST_PATTERN = /^me\/onenote\/sections\/[^/]+\/pages$/i;
 const MAX_RESOURCE_BYTES = 25 * 1024 * 1024;
+const PREVIEW_MAX_ITEMS = 10;
+const PREVIEW_MAX_CHARS = 200;
 const nodeHtmlMarkdown = new NodeHtmlMarkdown();
 
 function buildMultipartBody(html) {
@@ -53,6 +57,22 @@ function buildResourceMultipartBody(commands, partName, contentType, fileBuffer)
     Buffer.from(closing, 'utf8')
   ]);
   return { boundary, body };
+}
+
+function htmlToPlainTextPreview(html, maxLength) {
+  const text = html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}…`;
 }
 
 function escapeHtmlAttribute(value) {
@@ -110,8 +130,9 @@ app.http('graphProxy', {
     const restOfPath = (request.params.restOfPath || '').replace(/^\/+/, '');
     const url = new URL(`${GRAPH_BASE}/${restOfPath}`);
     const format = request.query.get('format');
+    const includePreview = request.query.get('includePreview');
     for (const [key, value] of request.query.entries()) {
-      if (key === 'format') continue;
+      if (key === 'format' || key === 'includePreview') continue;
       url.searchParams.append(key, value);
     }
 
@@ -122,6 +143,32 @@ app.http('graphProxy', {
       const html = await graphResponse.text();
       const markdown = nodeHtmlMarkdown.translate(html);
       return { status: 200, headers: { 'Content-Type': 'text/markdown; charset=utf-8' }, body: markdown };
+    }
+
+    const isPagesListGet =
+      request.method === 'GET' &&
+      (ONENOTE_PAGES_LIST_PATTERN.test(restOfPath) || ONENOTE_SECTION_PAGES_LIST_PATTERN.test(restOfPath));
+    if (isPagesListGet && includePreview === 'true') {
+      const graphResponse = await fetch(url.toString(), { method: 'GET', headers: { Authorization: authHeader } });
+      if (!graphResponse.ok) return forwardResponse(graphResponse);
+      const data = await graphResponse.json();
+      const items = Array.isArray(data.value) ? data.value : [];
+      await Promise.all(
+        items.slice(0, PREVIEW_MAX_ITEMS).map(async (page) => {
+          try {
+            const contentResponse = await fetch(`${GRAPH_BASE}/me/onenote/pages/${page.id}/content`, {
+              headers: { Authorization: authHeader }
+            });
+            if (contentResponse.ok) {
+              const html = await contentResponse.text();
+              page.preview = htmlToPlainTextPreview(html, PREVIEW_MAX_CHARS);
+            }
+          } catch {
+            // best-effort enrichment — leave preview unset on failure
+          }
+        })
+      );
+      return { status: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
     }
 
     const imageMatch = request.method === 'POST' && restOfPath.match(ONENOTE_PAGE_IMAGE_PATTERN);

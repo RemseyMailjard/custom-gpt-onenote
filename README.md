@@ -23,9 +23,13 @@ You (in ChatGPT) → Custom GPT → Action (this proxy) → Microsoft Graph → 
 
 What it currently supports (via Graph, exposed as GPT Action operations):
 
-- List notebooks, sections, pages (`listNotebooks`, `listAllSections`, `listPagesInSection`, ...)
+- List notebooks, sections, section groups, pages (`listNotebooks`, `listAllSections`,
+  `listSectionGroupsInNotebook`, `listPagesInSection`, ...), with optional
+  `$filter` (e.g. by `lastModifiedDateTime`) and `includePreview=true` for a
+  plain-text snippet per result
 - Read a page's content as HTML or as clean Markdown (`getPage`, `getPageContent?format=markdown`)
-- Create a notebook or page (`createNotebook`, `createPage`)
+- Create a notebook, section, section group or page (`createNotebook`,
+  `createSection`, `createSectionGroup`, `createSectionInGroup`, `createPage`)
 - Update an existing page's content (`updatePageContent`)
 - Add an image or file attachment to a page (`addImageToPage`, `addAttachmentToPage`)
 - Copy or move a page to another section (`copyPageToSection`, `movePage`)
@@ -33,6 +37,12 @@ What it currently supports (via Graph, exposed as GPT Action operations):
 
 Authentication is delegated Microsoft sign-in (OAuth via Entra ID) — you only
 ever see and edit your own OneNote content, scoped to `Notes.ReadWrite`.
+
+**Not supported, by design:** renaming a notebook or section. Microsoft Graph's
+OneNote API only supports List/Get/Create on notebooks and sections — there is
+no update operation, so a "rename" would have to be faked as delete-and-recreate,
+which is destructive and loses page history/links. Rename sections directly in
+OneNote instead.
 
 ## Installation
 
@@ -359,12 +369,16 @@ agent prompt if you have one covering other Actions too):
 ## OneNote routing
 
 - For every OneNote request — reading, searching, creating, updating, copying,
-  moving or deleting notebooks, sections or pages — always call the OneNote
-  Graph Proxy Action (`listNotebooks`, `createNotebook`, `listSectionsInNotebook`,
-  `listAllSections`, `listPagesInSection`, `createPage`, `listPages`, `getPage`,
-  `getPageContent`, `updatePageContent`, `addImageToPage`, `addAttachmentToPage`,
+  moving or deleting notebooks, sections, section groups or pages — always call
+  the OneNote Graph Proxy Action (`listNotebooks`, `createNotebook`,
+  `listSectionsInNotebook`, `createSection`, `listAllSections`,
+  `listSectionGroupsInNotebook`, `createSectionGroup`, `createSectionInGroup`,
+  `listPagesInSection`, `createPage`, `listPages`, `getPage`, `getPageContent`,
+  `updatePageContent`, `addImageToPage`, `addAttachmentToPage`,
   `copyPageToSection`, `movePage`, `deletePage`). Never answer a OneNote question
-  from memory and never invent notebook, section or page names.
+  from memory and never invent notebook, section or page names. Renaming a
+  notebook or section is **not possible** — Graph has no update operation for
+  them; tell the user to rename it directly in OneNote instead.
 - The user will refer to notebooks, sections and pages by name, not by ID. Resolve
   the exact `id` first with `listNotebooks`, `listSectionsInNotebook`, `listAllSections`
   or `listPagesInSection` (use `$select=id,displayName` or `id,title` to keep the
@@ -372,11 +386,17 @@ agent prompt if you have one covering other Actions too):
   that needs that ID.
 - If more than one notebook, section or page matches closely, present the short
   list of candidates and ask which one is meant instead of guessing.
-- Prefer an existing relevant notebook and section over creating duplicates.
+- Prefer an existing relevant notebook and section over creating duplicates. To
+  create a new section for a course/client, call `createSection` with the
+  notebook id and a `displayName` rather than asking the user to do it manually.
 - When reading a page to answer a question, search, or summarize, call
   `getPageContent` with `format=markdown` — it's cleaner and cheaper in tokens
   than raw HTML. Only use the default (no `format`, i.e. HTML) when you're about
   to call `updatePageContent` and need real element `data-id`s.
+- When searching across several candidate pages (`listPages`/`listPagesInSection`
+  with `search` or `$filter`), add `includePreview=true` to get a short text
+  snippet per result (first 10 only) instead of calling `getPageContent` on each
+  candidate separately to judge relevance.
 - To change an existing page, read its content first with `getPageContent`
   (default HTML format), then call `updatePageContent` with commands describing
   the change (see below) rather than creating a duplicate page.

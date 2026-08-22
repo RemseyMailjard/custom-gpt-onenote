@@ -112,6 +112,41 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSection
+      summary: Create a new section in a notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section
+                  example: Week 3 — Networking
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /v1.0/me/onenote/sections:
     get:
@@ -140,6 +175,113 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /v1.0/me/onenote/notebooks/{notebookId}/sectionGroups:
+    get:
+      operationId: listSectionGroupsInNotebook
+      summary: List the section groups inside a specific notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of section groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionGroupCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSectionGroup
+      summary: Create a new section group in a notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section group
+                  example: Klant X
+      responses:
+        '201':
+          description: Section group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sectionGroups/{sectionGroupId}/sections:
+    post:
+      operationId: createSectionInGroup
+      summary: Create a new section inside a section group
+      parameters:
+        - name: sectionGroupId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section
+                  example: Week 3 — Networking
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1.0/me/onenote/sections/{sectionId}/pages:
     get:
       operationId: listPagesInSection
@@ -163,6 +305,27 @@ paths:
           schema:
             type: integer
           description: Maximum number of items to return (OData $top)
+        - name: $filter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData filter passed through to Microsoft Graph unchanged, e.g.
+            "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
+            modified after a date.
+        - name: includePreview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >
+            If true, the proxy fetches each page's content and adds a
+            `preview` field (plain-text snippet, ~200 characters) to the
+            first 10 results. Costs extra latency (one Graph call per
+            page) — use when you need to judge relevance without a
+            separate getPageContent call per candidate.
       responses:
         '200':
           description: A collection of pages
@@ -242,6 +405,27 @@ paths:
           required: false
           schema:
             type: string
+        - name: $filter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData filter passed through to Microsoft Graph unchanged, e.g.
+            "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
+            modified after a date.
+        - name: includePreview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >
+            If true, the proxy fetches each page's content and adds a
+            `preview` field (plain-text snippet, ~200 characters) to the
+            first 10 results. Costs extra latency (one Graph call per
+            page) — use when you need to judge relevance without a
+            separate getPageContent call per candidate.
       responses:
         '200':
           description: A collection of pages
@@ -696,6 +880,28 @@ components:
           items:
             $ref: '#/components/schemas/Section'
 
+    SectionGroup:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+
+    SectionGroupCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionGroup'
+
     Page:
       type: object
       properties:
@@ -711,6 +917,12 @@ components:
           format: date-time
         contentUrl:
           type: string
+        preview:
+          type: string
+          description: >
+            Plain-text snippet (~200 characters) of the page's content.
+            Only present when the request used includePreview=true, and
+            only on the first 10 results.
         links:
           type: object
           properties:
