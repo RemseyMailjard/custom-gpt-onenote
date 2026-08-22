@@ -1106,6 +1106,82 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /v1.0/me/onenote/sections/{sectionId}/copyToNotebook:
+    post:
+      operationId: copySectionToNotebook
+      summary: Copy a section, with all its pages, into another notebook
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToNotebook
+        operation. Graph processes this asynchronously and returns 202
+        immediately. Use this to reuse a course/client template section as
+        the starting point for a new notebook, instead of recreating pages
+        one by one.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination notebook
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections/{sectionId}/copyToSectionGroup:
+    post:
+      operationId: copySectionToSectionGroup
+      summary: Copy a section, with all its pages, into a section group
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToSectionGroup
+        operation. Graph processes this asynchronously and returns 202
+        immediately.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination section group
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1.0/me/onenote/pages:
     get:
       operationId: listPages

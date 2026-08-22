@@ -33,6 +33,8 @@ What it currently supports (via Graph, exposed as GPT Action operations):
 - Update an existing page's content (`updatePageContent`)
 - Add an image or file attachment to a page (`addImageToPage`, `addAttachmentToPage`)
 - Copy or move a page to another section (`copyPageToSection`, `movePage`)
+- Copy a whole section — template and all its pages — into another notebook
+  or section group (`copySectionToNotebook`, `copySectionToSectionGroup`)
 - Delete a page (`deletePage`)
 
 Authentication is delegated Microsoft sign-in (OAuth via Entra ID) — you only
@@ -375,10 +377,19 @@ agent prompt if you have one covering other Actions too):
   `listSectionGroupsInNotebook`, `createSectionGroup`, `createSectionInGroup`,
   `listPagesInSection`, `createPage`, `listPages`, `getPage`, `getPageContent`,
   `updatePageContent`, `addImageToPage`, `addAttachmentToPage`,
-  `copyPageToSection`, `movePage`, `deletePage`). Never answer a OneNote question
-  from memory and never invent notebook, section or page names. Renaming a
-  notebook or section is **not possible** — Graph has no update operation for
-  them; tell the user to rename it directly in OneNote instead.
+  `copyPageToSection`, `movePage`, `copySectionToNotebook`,
+  `copySectionToSectionGroup`, `deletePage`). Never answer a OneNote question
+  from memory and never invent notebook, section or page names. Renaming or
+  deleting a notebook or section is **not possible** — Graph has no
+  update/delete operation for them; tell the user to do it directly in
+  OneNote instead.
+- To reuse a course or client template, call `copySectionToNotebook` (or
+  `copySectionToSectionGroup`) with the template `sectionId` and the
+  destination notebook/section-group `id` — this copies the whole section
+  with all its pages in one call, instead of recreating pages one by one.
+  Like `copyPageToSection`, Graph processes this asynchronously (202
+  response); don't claim the copy is finished until the user confirms it if
+  that matters.
 - The user will refer to notebooks, sections and pages by name, not by ID. Resolve
   the exact `id` first with `listNotebooks`, `listSectionsInNotebook`, `listAllSections`
   or `listPagesInSection` (use `$select=id,displayName` or `id,title` to keep the
