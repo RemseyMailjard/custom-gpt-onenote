@@ -15,7 +15,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DEPLOY_DIR="${REPO_ROOT}/deployments/${AZURE_ENV_NAME}"
 mkdir -p "${DEPLOY_DIR}"
 
-APP_DISPLAY_NAME="${ENTRA_APP_DISPLAY_NAME:-OneNote ChatGPT Action}"
+# Scoped to this azd environment's name, not just "OneNote ChatGPT Action" —
+# a generic display name would match (and silently reuse) an unrelated
+# deployment's app registration if one happens to share that name in the
+# same tenant, which is not what "idempotent re-run of THIS deployment"
+# should mean.
+APP_DISPLAY_NAME="${ENTRA_APP_DISPLAY_NAME:-OneNote ChatGPT Action (${AZURE_ENV_NAME})}"
 SIGN_IN_AUDIENCE="${ENTRA_SIGN_IN_AUDIENCE:-AzureADMyOrg}"
 
 TENANT_ID="$(az account show --query tenantId -o tsv)"

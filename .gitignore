@@ -8,3 +8,4 @@ obj/
 
 # Contains OAuth client secrets — never commit
 notebuddy-gpt-oauth-config.md
+deployments/*/gpt-oauth-config.md

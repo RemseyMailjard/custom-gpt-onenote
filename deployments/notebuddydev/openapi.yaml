@@ -1,0 +1,1129 @@
+openapi: 3.1.0
+info:
+  title: OneNote via Microsoft Graph (Proxy)
+  description: >
+    Proxy in front of Microsoft Graph v1.0 for reading, writing and
+    organizing OneNote notebooks, sections, section groups and pages of the
+    signed-in user. The proxy forwards the caller's Authorization header
+    straight through to Microsoft Graph, so a valid Microsoft Entra ID
+    (Azure AD) delegated access token with OneNote permissions is required
+    on every call.
+
+    Note: several operations accept plain JSON where Microsoft Graph itself
+    requires multipart/form-data, and the proxy builds that multipart body
+    for you — creating a page (`content` field, full HTML), updating a
+    page's content (`commands` array), and adding an image or file
+    attachment to a page (base64 `data` field). `getPageContent` can also
+    return a page as clean Markdown instead of raw HTML via
+    `?format=markdown`. `movePage` is a composite operation (copy, verify,
+    then delete the original) since Graph has no native cross-section page
+    move. All other operations — including the native async
+    `copyPageToSection`, `copySectionToNotebook`, `copySectionToSectionGroup`
+    and `copyNotebook` — are transparent pass-through to Microsoft Graph.
+  version: 1.1.0
+servers:
+  - url: "https://notebuddydev-onenote-proxy-ndsd5.azurewebsites.net"
+    description: Production (Azure Functions, Linux Consumption).
+
+security:
+  - oneNoteOAuth:
+      - Notes.ReadWrite
+      - offline_access
+
+paths:
+  /v1.0/me/onenote/notebooks:
+    get:
+      operationId: listNotebooks
+      summary: List the signed-in user's OneNote notebooks
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "name desc" (default is "name asc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for notebooks: "sections", "sectionGroups".
+      responses:
+        '200':
+          description: A collection of notebooks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotebookCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createNotebook
+      summary: Create a new OneNote notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new notebook
+                  example: Project X
+      responses:
+        '201':
+          description: Notebook created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notebook'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/copyNotebook:
+    post:
+      operationId: copyNotebook
+      summary: Copy an entire notebook, with all its sections and pages
+      description: >
+        Plain pass-through to Microsoft Graph's native copyNotebook
+        operation. Graph processes this asynchronously and returns 202
+        immediately. Use this to duplicate a whole client/course notebook as
+        a starting template for a new client/cohort, instead of copying
+        section by section.
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied notebook
+                groupId:
+                  type: string
+                  description: Optional — copy into a Microsoft 365 group instead of /me
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/sections:
+    get:
+      operationId: listSectionsInNotebook
+      summary: List the sections inside a specific notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSection
+      summary: Create a new section in a notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section
+                  example: Week 3 — Networking
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections:
+    get:
+      operationId: listAllSections
+      summary: List all OneNote sections of the signed-in user (across notebooks)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of sections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/sectionGroups:
+    get:
+      operationId: listSectionGroupsInNotebook
+      summary: List the section groups inside a specific notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+      responses:
+        '200':
+          description: A collection of section groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionGroupCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createSectionGroup
+      summary: Create a new section group in a notebook
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section group
+                  example: Klant X
+      responses:
+        '201':
+          description: Section group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SectionGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sectionGroups/{sectionGroupId}/sections:
+    post:
+      operationId: createSectionInGroup
+      summary: Create a new section inside a section group
+      parameters:
+        - name: sectionGroupId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  description: Name of the new section
+                  example: Week 3 — Networking
+      responses:
+        '201':
+          description: Section created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections/{sectionId}/pages:
+    get:
+      operationId: listPagesInSection
+      summary: List the pages inside a specific section
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+        - name: $filter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData filter passed through to Microsoft Graph unchanged, e.g.
+            "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
+            modified after a date.
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "title asc" (default is "lastModifiedDateTime desc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for pages: "parentNotebook", "parentSection".
+        - name: includePreview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >
+            If true, the proxy fetches each page's content and adds a
+            `preview` field (plain-text snippet, ~200 characters) to the
+            first 10 results. Costs extra latency (one Graph call per
+            page) — use when you need to judge relevance without a
+            separate getPageContent call per candidate.
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      operationId: createPage
+      summary: Create a new page in a section from full HTML
+      description: >
+        Send the complete HTML document as a string in the `content` field.
+        The proxy wraps it in the multipart/form-data format Microsoft Graph
+        requires for one-step page creation, so callers only need plain JSON.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  description: >
+                    Full HTML document for the page, e.g.
+                    "<html><head><title>My title</title></head><body><p>Hello</p></body></html>".
+                    The <title> becomes the page title in OneNote.
+                  example: "<html><head><title>Meeting notes</title></head><body><p>Hello world</p></body></html>"
+      responses:
+        '201':
+          description: Page created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '400':
+          description: Missing or invalid JSON body, or missing `content` field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/sections/{sectionId}/copyToNotebook:
+    post:
+      operationId: copySectionToNotebook
+      summary: Copy a section, with all its pages, into another notebook
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToNotebook
+        operation. Graph processes this asynchronously and returns 202
+        immediately. Use this to reuse a course/client template section as
+        the starting point for a new notebook, instead of recreating pages
+        one by one.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination notebook
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/sections/{sectionId}/copyToSectionGroup:
+    post:
+      operationId: copySectionToSectionGroup
+      summary: Copy a section, with all its pages, into a section group
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToSectionGroup
+        operation. Graph processes this asynchronously and returns 202
+        immediately.
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the section to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination section group
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages:
+    get:
+      operationId: listPages
+      summary: List all OneNote pages of the signed-in user (across sections)
+      parameters:
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+        - name: $top
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Maximum number of items to return (OData $top)
+        - name: search
+          in: query
+          description: Free-text search across page titles/content (OData $search)
+          required: false
+          schema:
+            type: string
+        - name: $filter
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData filter passed through to Microsoft Graph unchanged, e.g.
+            "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
+            modified after a date.
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "title asc" (default is "lastModifiedDateTime desc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for pages: "parentNotebook", "parentSection".
+        - name: includePreview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >
+            If true, the proxy fetches each page's content and adds a
+            `preview` field (plain-text snippet, ~200 characters) to the
+            first 10 results. Costs extra latency (one Graph call per
+            page) — use when you need to judge relevance without a
+            separate getPageContent call per candidate.
+      responses:
+        '200':
+          description: A collection of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCollection'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/pages/{pageId}:
+    get:
+      operationId: getPage
+      summary: Get metadata for a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+        - name: $select
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of fields to return (OData $select)
+      responses:
+        '200':
+          description: Page metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deletePage
+      summary: Delete a specific page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      responses:
+        '204':
+          description: Page deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/content:
+    get:
+      operationId: getPageContent
+      summary: Get the content of a page, as HTML or as clean Markdown
+      description: >
+        Defaults to raw OneNote HTML (needed when you plan to call
+        updatePageContent afterwards and need element `data-id`s). Pass
+        `format=markdown` to instead get a clean, token-efficient Markdown
+        rendering — preferred for reading, searching and summarizing, since
+        it strips OneNote's styling/positioning markup and preserves
+        headings, lists, tables and links.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [html, markdown]
+            default: html
+          description: >
+            "html" (default) returns raw OneNote HTML. "markdown" returns a
+            cleaned-up Markdown rendering, better suited for reading/
+            summarizing and cheaper in tokens.
+      responses:
+        '200':
+          description: Content of the page, in the requested format
+          content:
+            text/html:
+              schema:
+                type: string
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      operationId: updatePageContent
+      summary: Update the content of an existing page
+      description: >
+        Send one or more commands describing how to modify the page's HTML.
+        The proxy wraps them in the multipart/form-data "Commands" part
+        Microsoft Graph requires, so callers only need plain JSON.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [commands]
+              properties:
+                commands:
+                  type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/PageContentCommand'
+              example:
+                commands:
+                  - target: body
+                    action: append
+                    content: "<p>Extra note added later.</p>"
+      responses:
+        '204':
+          description: Page content updated
+        '400':
+          description: Missing or invalid JSON body, or missing/empty `commands` array
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/images:
+    post:
+      operationId: addImageToPage
+      summary: Add an image to an existing page
+      description: >
+        Send image bytes as base64 JSON; the proxy embeds them as an
+        `<img>` element via the multipart/form-data format Microsoft Graph
+        requires, so callers only need plain JSON. Useful for screenshots,
+        architecture diagrams and slide excerpts.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, contentType]
+              properties:
+                data:
+                  type: string
+                  description: Base64-encoded image bytes (max 25 MB decoded)
+                contentType:
+                  type: string
+                  description: Image MIME type, e.g. "image/png"
+                  example: image/png
+                alt:
+                  type: string
+                  description: Optional alt text for the image
+                placement:
+                  type: string
+                  enum: [append, prepend]
+                  default: append
+                  description: Where on the page to insert the image
+      responses:
+        '204':
+          description: Image added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Image exceeds the 25 MB limit
+
+  /v1.0/me/onenote/pages/{pageId}/attachments:
+    post:
+      operationId: addAttachmentToPage
+      summary: Add a file attachment to an existing page
+      description: >
+        Send file bytes as base64 JSON; the proxy embeds them as an
+        `<object data-attachment>` element via the multipart/form-data
+        format Microsoft Graph requires, so callers only need plain JSON.
+        Useful for handouts, PDFs and other course/customer materials.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [data, contentType, fileName]
+              properties:
+                data:
+                  type: string
+                  description: Base64-encoded file bytes (max 25 MB decoded)
+                contentType:
+                  type: string
+                  description: File MIME type, e.g. "application/pdf"
+                  example: application/pdf
+                fileName:
+                  type: string
+                  description: File name shown in OneNote
+                  example: handout.pdf
+                placement:
+                  type: string
+                  enum: [append, prepend]
+                  default: append
+                  description: Where on the page to insert the attachment
+      responses:
+        '204':
+          description: Attachment added
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Attachment exceeds the 25 MB limit
+
+  /v1.0/me/onenote/pages/{pageId}/copyToSection:
+    post:
+      operationId: copyPageToSection
+      summary: Copy a page into another section
+      description: >
+        Plain pass-through to Microsoft Graph's native copyToSection
+        operation. Graph processes this asynchronously and returns 202
+        immediately; the copy itself usually completes within seconds.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  description: The id of the destination section
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1.0/me/onenote/pages/{pageId}/move:
+    post:
+      operationId: movePage
+      summary: Move a page to another section (copy, then delete the original)
+      description: >
+        OneNote/Graph has no native cross-section move, so the proxy copies
+        the page to the destination section, waits for Microsoft to confirm
+        the copy succeeded, and only then deletes the original — the
+        original is never removed unless the copy is confirmed. If the copy
+        is still running after ~20 seconds the proxy returns 202 and leaves
+        the original untouched; retry the request in that case.
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the page to move
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [destinationSectionId]
+              properties:
+                destinationSectionId:
+                  type: string
+                  description: The id of the destination section
+      responses:
+        '200':
+          description: Move completed — page copied and original deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  newPageId:
+                    type: string
+                  deletedOriginal:
+                    type: boolean
+        '202':
+          description: Copy still in progress; original page was not deleted, retry shortly
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '502':
+          description: >
+            Copy failed (original untouched), or copy succeeded but deleting
+            the original failed (a duplicate page now exists — check
+            newPageId in the error body)
+
+components:
+  securitySchemes:
+    oneNoteOAuth:
+      type: oauth2
+      description: >
+        Configure Client ID / Client Secret in ChatGPT's Action ->
+        Authentication panel (OAuth), not in this file. This deployment uses
+        a single-tenant Microsoft Entra ID app registration (sign-in
+        audience AzureADMyOrg, tenant a300b38b-6acb-43db-b02a-af94b4300d87 —
+        personal use, only that tenant's users can sign in) with redirect
+        URI https://chat.openai.com/aip/<action-id>/oauth/callback (ChatGPT
+        shows the exact value once OAuth is selected) and delegated
+        Microsoft Graph permission Notes.ReadWrite (+ offline_access)
+        granted. Authorization/Token URL must use the tenant ID (below),
+        not /organizations/ or /common/.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/a300b38b-6acb-43db-b02a-af94b4300d87/oauth2/v2.0/token
+          scopes:
+            Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
+            offline_access: Keep access when the user is not present (refresh token)
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Authorization header / token rejected by Microsoft Graph
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The requested resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+    Notebook:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        isDefault:
+          type: boolean
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    NotebookCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notebook'
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        pagesUrl:
+          type: string
+
+    SectionCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Section'
+
+    SectionGroup:
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+
+    SectionGroupCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/SectionGroup'
+
+    Page:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdDateTime:
+          type: string
+          format: date-time
+        lastModifiedDateTime:
+          type: string
+          format: date-time
+        contentUrl:
+          type: string
+        preview:
+          type: string
+          description: >
+            Plain-text snippet (~200 characters) of the page's content.
+            Only present when the request used includePreview=true, and
+            only on the first 10 results.
+        links:
+          type: object
+          properties:
+            oneNoteClientUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+            oneNoteWebUrl:
+              type: object
+              properties:
+                href:
+                  type: string
+
+    PageCollection:
+      type: object
+      properties:
+        value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Page'
+
+    PageContentCommand:
+      type: object
+      required: [target, action]
+      properties:
+        target:
+          type: string
+          description: Element to modify — "body", or the data-id of an existing element on the page
+          example: body
+        action:
+          type: string
+          enum: [append, insert, prepend, replace, delete]
+          description: How to apply this command relative to the target
+        position:
+          type: string
+          enum: [before, after]
+          description: Used together with action "insert" to position content relative to target
+        content:
+          type: string
+          description: HTML fragment to insert/append/prepend/replace with. Not used for action "delete".

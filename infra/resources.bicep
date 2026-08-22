@@ -1,17 +1,23 @@
 @description('Azure region for all resources')
 param location string
 
-@description('Short unique token used to build globally-unique resource names')
+@description('The azd environment name, used as a readable prefix in resource names')
+param environmentName string
+
+@description('Short unique token used to keep globally-unique resource names collision-free')
 param resourceToken string
 
 @description('Tags applied to every resource')
 param tags object
 
-// Storage account name: lowercase alphanumeric only, max 24 chars
-var storageAccountName = take('st${resourceToken}', 24)
-var functionAppName = 'func-${resourceToken}'
-var hostingPlanName = 'plan-${resourceToken}'
-var appInsightsName = 'appi-${resourceToken}'
+var namePrefix = toLower(environmentName)
+var nameSuffix = take(resourceToken, 5)
+
+// Storage account name: lowercase alphanumeric only, max 24 chars, no hyphens
+var storageAccountName = take('${replace(namePrefix, '-', '')}${nameSuffix}', 24)
+var functionAppName = '${namePrefix}-onenote-proxy-${nameSuffix}'
+var hostingPlanName = '${namePrefix}-onenote-proxy-plan-${nameSuffix}'
+var appInsightsName = '${namePrefix}-onenote-proxy-appi-${nameSuffix}'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
