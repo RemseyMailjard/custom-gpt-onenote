@@ -1,0 +1,2412 @@
+openapi: 3.1.0
+info:
+  title: OneNote Capability Gateway
+  version: 0.1.0
+  description: Agent-first gateway over Microsoft Graph OneNote. The public contract
+    exposes semantic capabilities, not arbitrary Graph URLs or raw OData. Microsoft
+    Graph OneNote access is delegated-only; app-only authentication is not supported.
+servers:
+- url: https://gateway.example.com/onenote/v1
+  description: Replace with the deployed OneNote Capability Gateway URL
+tags:
+- name: Notebooks
+- name: Sections
+- name: Section groups
+- name: Pages
+- name: Content
+- name: Resources
+- name: Copy and move
+- name: Operations
+security:
+- delegatedOneNote:
+  - Notes.Read
+paths:
+  /notebooks:
+    get:
+      summary: List accessible notebooks
+      operationId: onenote_list_notebooks
+      tags:
+      - Notebooks
+      description: Lists notebooks in a typed OneNote context. Raw OData is not accepted.
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': &id001
+          $ref: '#/components/responses/Error400'
+        '401': &id002
+          $ref: '#/components/responses/Error401'
+        '403': &id003
+          $ref: '#/components/responses/Error403'
+        '404': &id004
+          $ref: '#/components/responses/Error404'
+        '409': &id005
+          $ref: '#/components/responses/Error409'
+        '413': &id006
+          $ref: '#/components/responses/Error413'
+        '429': &id007
+          $ref: '#/components/responses/Error429'
+        '503': &id008
+          $ref: '#/components/responses/Error503'
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      - site
+      parameters:
+      - name: contextType
+        in: query
+        schema:
+          type: string
+          enum:
+          - me
+          - sharedUser
+          - group
+          - site
+          default: me
+      - name: contextId
+        in: query
+        schema:
+          type: string
+        required: false
+      - name: nameContains
+        in: query
+        schema:
+          type: string
+        required: false
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      summary: Create a notebook
+      operationId: onenote_create_notebook
+      tags:
+      - Notebooks
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: create
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      - site
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotebookRequest'
+  /notebooks/{notebookId}:
+    get:
+      summary: Get a notebook
+      operationId: onenote_get_notebook
+      tags:
+      - Notebooks
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      - site
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+  /notebooks/recent:
+    get:
+      summary: Get recent notebooks
+      operationId: onenote_get_recent_notebooks
+      tags:
+      - Notebooks
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      x-supported-contexts:
+      - me
+  /notebooks/find:
+    get:
+      summary: Find notebooks by safe typed criteria
+      operationId: onenote_find_notebooks
+      tags:
+      - Notebooks
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: agent_convenience
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: matchMode
+        in: query
+        schema:
+          type: string
+          enum:
+          - exact
+          - startsWith
+          - contains
+          default: contains
+  /notebooks/{notebookId}/tree:
+    get:
+      summary: Get notebook hierarchy as a tree
+      operationId: onenote_get_notebook_tree
+      tags:
+      - Notebooks
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+  /notebooks/{notebookId}/sections:
+    get:
+      summary: List sections in a notebook
+      operationId: onenote_list_sections
+      tags:
+      - Sections
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      summary: Create a section in a notebook
+      operationId: onenote_create_section
+      tags:
+      - Sections
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: create
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSectionRequest'
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+  /sections/{sectionId}:
+    get:
+      summary: Get a section
+      operationId: onenote_get_section
+      tags:
+      - Sections
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+  /sections/find:
+    get:
+      summary: Find sections by safe typed criteria
+      operationId: onenote_find_sections
+      tags:
+      - Sections
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: agent_convenience
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+  /section-groups/{sectionGroupId}/sections:
+    post:
+      summary: Create a section in a section group
+      operationId: onenote_create_section_in_group
+      tags:
+      - Sections
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: create
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSectionRequest'
+      parameters:
+      - name: sectionGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+  /notebooks/{notebookId}/section-groups:
+    get:
+      summary: List section groups in a notebook
+      operationId: onenote_list_section_groups
+      tags:
+      - Section groups
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+  /section-groups/{sectionGroupId}:
+    get:
+      summary: Get a section group
+      operationId: onenote_get_section_group
+      tags:
+      - Section groups
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: sectionGroupId
+        in: path
+        required: true
+        schema:
+          type: string
+  /section-groups:
+    post:
+      summary: Create a section group
+      operationId: onenote_create_section_group
+      tags:
+      - Section groups
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: create
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSectionGroupRequest'
+  /sections/{sectionId}/pages:
+    get:
+      summary: List pages in a section
+      operationId: onenote_list_pages
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: includeHierarchy
+        in: query
+        schema:
+          type: boolean
+          default: false
+      - $ref: '#/components/parameters/PageSize'
+      - $ref: '#/components/parameters/Cursor'
+    post:
+      summary: Create a page from HTML or Markdown
+      operationId: onenote_create_page
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: create
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePageRequest'
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /pages/{pageId}:
+    get:
+      summary: Get page metadata
+      operationId: onenote_get_page
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      summary: Delete a page
+      operationId: onenote_delete_page
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: delete
+        risk: high
+        destructive: true
+        confirmationRequired: true
+        requiresDeterministicResource: true
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: confirmationToken
+        in: header
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/preview:
+    get:
+      summary: Get a lightweight page preview
+      operationId: onenote_get_page_preview
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/find:
+    get:
+      summary: Find pages using safe metadata criteria
+      operationId: onenote_find_pages
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: agent_convenience
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: title
+        in: query
+        schema:
+          type: string
+      - name: sectionId
+        in: query
+        schema:
+          type: string
+      - name: notebookId
+        in: query
+        schema:
+          type: string
+      - name: createdAfter
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: modifiedAfter
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: maxResults
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+  /sections/{sectionId}/page-tree:
+    get:
+      summary: Get page hierarchy in a section
+      operationId: onenote_get_section_page_tree
+      tags:
+      - Pages
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/content:
+    get:
+      summary: Get page content
+      operationId: onenote_get_page_content
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: format
+        in: query
+        schema:
+          type: string
+          enum:
+          - html
+          - plainText
+          default: plainText
+  /pages/{pageId}/content/append:
+    post:
+      summary: Append content to a page
+      operationId: onenote_append_page_content
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageContentMutationRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/content/prepend:
+    post:
+      summary: Prepend content to a page
+      operationId: onenote_prepend_page_content
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageContentMutationRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/content/insert:
+    post:
+      summary: Insert content near a semantic target
+      operationId: onenote_insert_page_content
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageContentMutationRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/content/replace:
+    post:
+      summary: Replace content selected by a semantic target
+      operationId: onenote_replace_page_content
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageContentMutationRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/title:
+    put:
+      summary: Set a page title
+      operationId: onenote_set_page_title
+      tags:
+      - Content
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPageTitleRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/resources:
+    get:
+      summary: Discover normalized resources referenced by a page
+      operationId: onenote_get_page_resources
+      tags:
+      - Resources
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /resources/{resourceId}:
+    get:
+      summary: Get a page resource
+      operationId: onenote_get_resource
+      tags:
+      - Resources
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: resourceId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/images:
+    post:
+      summary: Add an image to a page
+      operationId: onenote_add_image_to_page
+      tags:
+      - Resources
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: &id009
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                placement:
+                  type: string
+                  enum:
+                  - append
+                  - prepend
+                  default: append
+                name:
+                  type: string
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/attachments:
+    post:
+      summary: Add a file attachment to a page
+      operationId: onenote_add_attachment_to_page
+      tags:
+      - Resources
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: update
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: *id009
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /pages/{pageId}/copy:
+    post:
+      summary: Copy a page to another section
+      operationId: onenote_copy_page_to_section
+      tags:
+      - Copy and move
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: copy
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+        '202':
+          description: Accepted; returns a gateway operation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      x-async: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyPageRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /pages/{pageId}/move:
+    post:
+      summary: Move a page by verified copy then delete
+      operationId: onenote_move_page
+      tags:
+      - Copy and move
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.ReadWrite
+      x-agent:
+        category: delete
+        risk: high
+        destructive: true
+        confirmationRequired: true
+        requiresDeterministicResource: true
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+        '202':
+          description: Accepted; returns a gateway operation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+      x-async: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MovePageRequest'
+      parameters:
+      - name: pageId
+        in: path
+        required: true
+        schema:
+          type: string
+  /sections/{sectionId}/copy-to-notebook:
+    post:
+      summary: Copy a section to a notebook
+      operationId: onenote_copy_section_to_notebook
+      tags:
+      - Copy and move
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: copy
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+        '202':
+          description: Accepted; returns a gateway operation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      x-async: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - destinationNotebookId
+              properties:
+                destinationNotebookId:
+                  type: string
+                renameAs:
+                  type:
+                  - string
+                  - 'null'
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+      - $ref: '#/components/parameters/IdempotencyKey'
+  /sections/{sectionId}/copy-to-section-group:
+    post:
+      summary: Copy a section to a section group
+      operationId: onenote_copy_section_to_section_group
+      tags:
+      - Copy and move
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: copy
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+        '202':
+          description: Accepted; returns a gateway operation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      x-async: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - destinationSectionGroupId
+              properties:
+                destinationSectionGroupId:
+                  type: string
+                renameAs:
+                  type:
+                  - string
+                  - 'null'
+      parameters:
+      - name: sectionId
+        in: path
+        required: true
+        schema:
+          type: string
+  /notebooks/{notebookId}/copy:
+    post:
+      summary: Copy a notebook
+      operationId: onenote_copy_notebook
+      tags:
+      - Copy and move
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Create
+      x-agent:
+        category: copy
+        risk: medium
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: true
+      x-implementation: graph_primitive
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+        '202':
+          description: Accepted; returns a gateway operation token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+      x-supported-contexts:
+      - me
+      - sharedUser
+      - group
+      x-async: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                destinationName:
+                  type:
+                  - string
+                  - 'null'
+      parameters:
+      - name: notebookId
+        in: path
+        required: true
+        schema:
+          type: string
+  /confirmations:
+    post:
+      summary: Prepare a destructive operation confirmation
+      operationId: onenote_prepare_confirmation
+      tags:
+      - Operations
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmationRequest'
+  /operations/{operationId}:
+    get:
+      summary: Get asynchronous operation status
+      operationId: onenote_get_operation
+      tags:
+      - Operations
+      description: ''
+      security:
+      - delegatedOneNote:
+        - Notes.Read
+      x-agent:
+        category: read
+        risk: low
+        destructive: false
+        confirmationRequired: false
+        requiresDeterministicResource: false
+      x-implementation: gateway_composite
+      responses:
+        '200':
+          description: Successful gateway response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        '400': *id001
+        '401': *id002
+        '403': *id003
+        '404': *id004
+        '409': *id005
+        '413': *id006
+        '429': *id007
+        '503': *id008
+      parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+components:
+  securitySchemes:
+    delegatedOneNote:
+      type: oauth2
+      description: Delegated Microsoft identity authorization. The gateway must not
+        use client-credentials/app-only authentication for Graph OneNote.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/common/oauth2/v2.0/token
+          scopes:
+            Notes.Create: Create OneNote notebooks, sections, and pages as the signed-in
+              user.
+            Notes.Read: Read OneNote notebooks of the signed-in user.
+            Notes.Read.All: Read OneNote notebooks accessible to the signed-in organizational
+              user.
+            Notes.ReadWrite: Read and modify OneNote notebooks as the signed-in user.
+            Notes.ReadWrite.All: Read and modify OneNote notebooks accessible to the
+              signed-in organizational user.
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque gateway cursor. Never pass a Microsoft Graph @odata.nextLink.
+      schema:
+        type: string
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Recommended for create/copy composite operations to prevent duplicate
+        execution.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+  schemas:
+    GatewayContext:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - type
+        properties:
+          type:
+            const: me
+      - type: object
+        additionalProperties: false
+        required:
+        - type
+        - userId
+        properties:
+          type:
+            const: sharedUser
+          userId:
+            type: string
+            minLength: 1
+      - type: object
+        additionalProperties: false
+        required:
+        - type
+        - groupId
+        properties:
+          type:
+            const: group
+          groupId:
+            type: string
+            minLength: 1
+      - type: object
+        additionalProperties: false
+        required:
+        - type
+        - siteId
+        properties:
+          type:
+            const: site
+          siteId:
+            type: string
+            minLength: 1
+      discriminator:
+        propertyName: type
+    Notebook:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - displayName
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        lastModifiedDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        isDefault:
+          type:
+          - boolean
+          - 'null'
+        links:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    Section:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - displayName
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        lastModifiedDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parent:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    SectionGroup:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - displayName
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        createdDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        lastModifiedDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parent:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+    Page:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - title
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        createdDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        lastModifiedDateTime:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        level:
+          type:
+          - integer
+          - 'null'
+        order:
+          type:
+          - integer
+          - 'null'
+        parentSectionId:
+          type:
+          - string
+          - 'null'
+        parentNotebookId:
+          type:
+          - string
+          - 'null'
+    PagePreview:
+      type: object
+      additionalProperties: false
+      required:
+      - pageId
+      - previewText
+      properties:
+        pageId:
+          type: string
+        title:
+          type:
+          - string
+          - 'null'
+        previewText:
+          type: string
+        previewImageResourceId:
+          type:
+          - string
+          - 'null'
+    PageContent:
+      type: object
+      additionalProperties: false
+      required:
+      - pageId
+      - format
+      - content
+      properties:
+        pageId:
+          type: string
+        title:
+          type:
+          - string
+          - 'null'
+        format:
+          type: string
+          enum:
+          - html
+          - plainText
+        content:
+          type: string
+    PageResource:
+      type: object
+      additionalProperties: false
+      required:
+      - resourceId
+      - type
+      properties:
+        resourceId:
+          type: string
+        type:
+          type: string
+          enum:
+          - image
+          - attachment
+          - other
+        name:
+          type:
+          - string
+          - 'null'
+        contentType:
+          type:
+          - string
+          - 'null'
+    OperationStatus:
+      type: object
+      additionalProperties: false
+      required:
+      - operationId
+      - status
+      properties:
+        operationId:
+          type: string
+        status:
+          type: string
+          enum:
+          - notStarted
+          - running
+          - completed
+          - failed
+        resource:
+          type:
+          - object
+          - 'null'
+          additionalProperties: true
+        error:
+          $ref: '#/components/schemas/GatewayError'
+    Paging:
+      type: object
+      additionalProperties: false
+      required:
+      - hasMore
+      properties:
+        hasMore:
+          type: boolean
+        nextCursor:
+          type:
+          - string
+          - 'null'
+    Meta:
+      type: object
+      additionalProperties: false
+      required:
+      - requestId
+      - apiVersion
+      properties:
+        requestId:
+          type: string
+        graphRequestId:
+          type:
+          - string
+          - 'null'
+        apiVersion:
+          type: string
+          enum:
+          - v1.0
+        source:
+          type: string
+          const: Microsoft Graph OneNote
+    GatewayError:
+      type:
+      - object
+      - 'null'
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+          - BAD_REQUEST
+          - AUTHENTICATION_REQUIRED
+          - INSUFFICIENT_PERMISSION
+          - RESOURCE_NOT_FOUND
+          - NOTEBOOK_NOT_FOUND
+          - SECTION_NOT_FOUND
+          - PAGE_NOT_FOUND
+          - AMBIGUOUS_RESOURCE
+          - TARGET_NOT_FOUND
+          - AMBIGUOUS_TARGET
+          - INVALID_PAGE_CONTENT
+          - UNSUPPORTED_CONTEXT
+          - CONFLICT
+          - PAYLOAD_TOO_LARGE
+          - THROTTLED
+          - GRAPH_UNAVAILABLE
+          - GATEWAY_ERROR
+        message:
+          type: string
+        graphStatus:
+          type:
+          - integer
+          - 'null'
+        graphCode:
+          type:
+          - string
+          - 'null'
+        oneNoteCode:
+          type:
+          - string
+          - 'null'
+        requestId:
+          type:
+          - string
+          - 'null'
+        retryAfterSeconds:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        candidates:
+          type:
+          - array
+          - 'null'
+          items:
+            type: object
+            additionalProperties: true
+    SuccessEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - success
+      - data
+      - meta
+      properties:
+        success:
+          const: true
+        data: {}
+        paging:
+          oneOf:
+          - $ref: '#/components/schemas/Paging'
+          - type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        error:
+          type: 'null'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+      - success
+      - data
+      - meta
+      - error
+      properties:
+        success:
+          const: false
+        data:
+          type: 'null'
+        paging:
+          type: 'null'
+        meta:
+          $ref: '#/components/schemas/Meta'
+        error:
+          $ref: '#/components/schemas/GatewayError'
+    CreateNotebookRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - displayName
+      properties:
+        context:
+          $ref: '#/components/schemas/GatewayContext'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 128
+    CreateSectionRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+    CreateSectionGroupRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - parent
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        parent:
+          oneOf:
+          - type: object
+            additionalProperties: false
+            required:
+            - type
+            - notebookId
+            properties:
+              type:
+                const: notebook
+              notebookId:
+                type: string
+          - type: object
+            additionalProperties: false
+            required:
+            - type
+            - sectionGroupId
+            properties:
+              type:
+                const: sectionGroup
+              sectionGroupId:
+                type: string
+          discriminator:
+            propertyName: type
+    CreatePageRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      - content
+      - contentFormat
+      properties:
+        title:
+          type: string
+          minLength: 1
+        content:
+          type: string
+        contentFormat:
+          type: string
+          enum:
+          - html
+          - markdown
+    PageContentMutationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - content
+      - contentFormat
+      properties:
+        content:
+          type: string
+        contentFormat:
+          type: string
+          enum:
+          - html
+          - markdown
+        semanticTarget:
+          type:
+          - object
+          - 'null'
+          additionalProperties: false
+          properties:
+            type:
+              type: string
+              enum:
+              - body
+              - title
+              - heading
+              - text
+            text:
+              type:
+              - string
+              - 'null'
+        position:
+          type:
+          - string
+          - 'null'
+          enum:
+          - before
+          - after
+          - null
+    SetPageTitleRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+    CopyPageRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - destinationSectionId
+      properties:
+        destinationSectionId:
+          type: string
+        destinationName:
+          type:
+          - string
+          - 'null'
+    MovePageRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - destinationSectionId
+      - confirmationToken
+      properties:
+        destinationSectionId:
+          type: string
+        confirmationToken:
+          type: string
+    ConfirmationRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - resourceId
+      - operation
+      properties:
+        resourceId:
+          type: string
+        operation:
+          type: string
+          enum:
+          - deletePage
+          - movePage
+    Confirmation:
+      type: object
+      additionalProperties: false
+      required:
+      - confirmationToken
+      - resource
+      - operation
+      properties:
+        confirmationToken:
+          type: string
+        operation:
+          type: string
+        resource:
+          type: object
+          additionalProperties: true
+        expiresAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+  responses:
+    Error400:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error401:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error403:
+      description: Insufficient permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error404:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error409:
+      description: Conflict or ambiguous resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error413:
+      description: Payload too large
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error429:
+      description: Throttled. Respect retryAfterSeconds.
+      headers:
+        Retry-After:
+          description: Seconds until a retry should be attempted.
+          schema:
+            type: integer
+            minimum: 0
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Error503:
+      description: Microsoft Graph/OneNote unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+x-gateway:
+  graphApiVersion: v1.0
+  delegatedOnly: true
+  rawGraphUrlsExposed: false
+  rawODataAccepted: false
+  opaquePagingCursor: true
+  opaqueOperationToken: true
+  sanitizeOneNoteHtml: true
+  retryPolicy:
+    respectRetryAfter: true
+    retryableStatusCodes:
+    - 429
+    - 503
+    - 504
+    idempotentReadsOnlyByDefault: true
