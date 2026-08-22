@@ -740,7 +740,7 @@ info:
     operations are transparent pass-through to Microsoft Graph.
   version: 1.0.0
 servers:
-  - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net
+  - url: https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net
     description: Production (Azure Functions, Linux Consumption)
 
 security:
@@ -1099,8 +1099,8 @@ components:
         Authentication panel (OAuth), not in this file.
       flows:
         authorizationCode:
-          authorizationUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize
-          tokenUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/token
+          authorizationUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/token
           scopes:
             Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
             offline_access: Keep access when the user is not present (refresh token)
@@ -1273,7 +1273,7 @@ components:
         <table class="kv-table">
           <tr>
             <th>Client ID</th>
-            <td><div class="field"><code id="v-client-id">08bf9389-78e4-4d76-9c68-fa1fee334bf9</code><button class="copy-btn" onclick="copyText('v-client-id', this)">Copy</button></div></td>
+            <td><div class="field"><code id="v-client-id">0a6341b0-6fce-40dd-abea-a5c67e8e6519</code><button class="copy-btn" onclick="copyText('v-client-id', this)">Copy</button></div></td>
           </tr>
           <tr>
             <th>Client Secret</th>
@@ -1281,11 +1281,11 @@ components:
           </tr>
           <tr>
             <th>Authorization URL</th>
-            <td><div class="field"><code id="v-auth-url">https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize</code><button class="copy-btn" onclick="copyText('v-auth-url', this)">Copy</button></div></td>
+            <td><div class="field"><code id="v-auth-url">https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/authorize</code><button class="copy-btn" onclick="copyText('v-auth-url', this)">Copy</button></div></td>
           </tr>
           <tr>
             <th>Token URL</th>
-            <td><div class="field"><code id="v-token-url">https://login.microsoftonline.com/organizations/oauth2/v2.0/token</code><button class="copy-btn" onclick="copyText('v-token-url', this)">Copy</button></div></td>
+            <td><div class="field"><code id="v-token-url">https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/token</code><button class="copy-btn" onclick="copyText('v-token-url', this)">Copy</button></div></td>
           </tr>
           <tr>
             <th>Scope</th>
@@ -1367,11 +1367,11 @@ components:
       sign in normally.
     </p>
     <div class="field">
-      <code id="consent-url">https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=08bf9389-78e4-4d76-9c68-fa1fee334bf9&amp;redirect_uri=https://chat.openai.com/aip/oauth/callback</code>
+      <code id="consent-url">https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/v2.0/adminconsent?client_id=0a6341b0-6fce-40dd-abea-a5c67e8e6519&amp;redirect_uri=https://chat.openai.com/aip/oauth/callback</code>
       <button class="copy-btn" onclick="copyText('consent-url', this)">Copy</button>
     </div>
     <div class="admin-actions">
-      <a class="btn" href="https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=08bf9389-78e4-4d76-9c68-fa1fee334bf9&redirect_uri=https://chat.openai.com/aip/oauth/callback">Grant admin consent ↗</a>
+      <a class="btn" href="https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/v2.0/adminconsent?client_id=0a6341b0-6fce-40dd-abea-a5c67e8e6519&redirect_uri=https://chat.openai.com/aip/oauth/callback">Grant admin consent ↗</a>
     </div>
     <div class="callout warn" style="margin-top:1.25rem;">
       <strong>Only works for tenant admins</strong>
@@ -1398,7 +1398,7 @@ components:
 
   <details class="faq">
     <summary>The server URL in the schema — can I point it elsewhere?</summary>
-    <p>No, leave it as <code>https://remsey-onenote-proxy-z3oh.azurewebsites.net</code>. That proxy is what translates plain JSON into the multipart format Microsoft Graph requires for page creation and updates; calling Graph directly would break those two operations.</p>
+    <p>No, leave it as <code>https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net</code>. That proxy is what translates plain JSON into the multipart format Microsoft Graph requires for page creation and updates; calling Graph directly would break those two operations.</p>
   </details>
 
   <footer>

@@ -16,7 +16,7 @@ info:
     operations are transparent pass-through to Microsoft Graph.
   version: 1.0.0
 servers:
-  - url: https://remsey-onenote-proxy-z3oh.azurewebsites.net
+  - url: https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net
     description: Production (Azure Functions, Linux Consumption)
 
 security:
@@ -372,20 +372,24 @@ components:
       type: oauth2
       description: >
         Configure Client ID / Client Secret in ChatGPT's Action ->
-        Authentication panel (OAuth), not in this file. Use a multitenant
-        Microsoft Entra ID app registration (sign-in audience
-        AzureADMultipleOrgs, so any work/school Microsoft 365 tenant can
-        sign in — not just skills4-it.nl) with redirect URI
-        https://chat.openai.com/aip/g-d0ce268413020bbc99dd5b70bc3aa6be2f2de5eb/oauth/callback
-        (this is this GPT's actual callback URL, shown by ChatGPT once OAuth
-        is selected as the auth method — it changes if the GPT's Action is
-        deleted and recreated, so re-check it if auth stops working) and
-        delegated Microsoft Graph permission Notes.ReadWrite (+ offline_access)
-        granted.
+        Authentication panel (OAuth), not in this file. This deployment uses
+        a single-tenant Microsoft Entra ID app registration (sign-in audience
+        AzureADMyOrg, tenant 11b6a58f-f5f3-4fc9-b77d-4443f4155763 —
+        personal use, only that tenant's users can sign in), Client ID
+        0a6341b0-6fce-40dd-abea-a5c67e8e6519. Redirect URIs registered on the
+        app: https://chat.openai.com/aip/g-2615d0cc79e85d663dceb225b63ba1d34add4cc7/oauth/callback
+        and https://chat.openai.com/aip/g-d74e62a1a9af451d01fb53e24aa253b9650a37f8/oauth/callback
+        (each GPT's actual callback URL, shown by ChatGPT once OAuth is
+        selected as the auth method — it changes if the GPT's Action is
+        deleted and recreated, so re-check it and re-register it if auth
+        stops working) and delegated Microsoft Graph permission
+        Notes.ReadWrite (+ offline_access) granted. Because the app is
+        single-tenant, Authorization/Token URL must use the tenant ID
+        (below), not /organizations/ or /common/.
       flows:
         authorizationCode:
-          authorizationUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize
-          tokenUrl: https://login.microsoftonline.com/organizations/oauth2/v2.0/token
+          authorizationUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/token
           scopes:
             Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
             offline_access: Keep access when the user is not present (refresh token)
