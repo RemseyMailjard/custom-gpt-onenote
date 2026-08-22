@@ -655,12 +655,10 @@ paths:
       operationId: getPageContent
       summary: Get the content of a page, as HTML or as clean Markdown
       description: >
-        Defaults to raw OneNote HTML (needed when you plan to call
-        updatePageContent afterwards and need element `data-id`s). Pass
-        `format=markdown` to instead get a clean, token-efficient Markdown
-        rendering — preferred for reading, searching and summarizing, since
-        it strips OneNote's styling/positioning markup and preserves
-        headings, lists, tables and links.
+        Defaults to raw HTML (needed for updatePageContent's data-ids). Pass
+        format=markdown for a clean, token-efficient Markdown rendering,
+        preferred for reading, searching and summarizing — strips styling
+        markup, keeps headings, lists, tables and links.
       parameters:
         - name: pageId
           in: path
@@ -877,12 +875,10 @@ paths:
       operationId: movePage
       summary: Move a page to another section (copy, then delete the original)
       description: >
-        OneNote/Graph has no native cross-section move, so the proxy copies
-        the page to the destination section, waits for Microsoft to confirm
-        the copy succeeded, and only then deletes the original — the
-        original is never removed unless the copy is confirmed. If the copy
-        is still running after ~20 seconds the proxy returns 202 and leaves
-        the original untouched; retry the request in that case.
+        Graph has no native cross-section move: the proxy copies the page,
+        waits for Microsoft to confirm success, then deletes the original —
+        never removed unless the copy is confirmed. If still running after
+        ~20s, returns 202 and leaves the original untouched; retry then.
       parameters:
         - name: pageId
           in: path
