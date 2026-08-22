@@ -42,6 +42,22 @@ paths:
           schema:
             type: integer
           description: Maximum number of items to return (OData $top)
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "name desc" (default is "name asc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for notebooks: "sections", "sectionGroups".
       responses:
         '200':
           description: A collection of notebooks
@@ -77,6 +93,44 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /v1.0/me/onenote/notebooks/{notebookId}/copyNotebook:
+    post:
+      operationId: copyNotebook
+      summary: Copy an entire notebook, with all its sections and pages
+      description: >
+        Plain pass-through to Microsoft Graph's native copyNotebook
+        operation. Graph processes this asynchronously and returns 202
+        immediately. Use this to duplicate a whole client/course notebook as
+        a starting template for a new client/cohort, instead of copying
+        section by section.
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The id of the notebook to copy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                renameAs:
+                  type: string
+                  description: Optional new name for the copied notebook
+                groupId:
+                  type: string
+                  description: Optional — copy into a Microsoft 365 group instead of /me
+      responses:
+        '202':
+          description: Copy accepted (processing asynchronously on Microsoft's side)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /v1.0/me/onenote/notebooks/{notebookId}/sections:
     get:
@@ -314,6 +368,22 @@ paths:
             OData filter passed through to Microsoft Graph unchanged, e.g.
             "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
             modified after a date.
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "title asc" (default is "lastModifiedDateTime desc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for pages: "parentNotebook", "parentSection".
         - name: includePreview
           in: query
           required: false
@@ -490,6 +560,22 @@ paths:
             OData filter passed through to Microsoft Graph unchanged, e.g.
             "lastModifiedDateTime ge 2026-08-01T00:00:00Z" to find pages
             modified after a date.
+        - name: $orderby
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData sort order, passed through to Microsoft Graph unchanged,
+            e.g. "title asc" (default is "lastModifiedDateTime desc").
+        - name: $expand
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >
+            OData expand, passed through to Microsoft Graph unchanged.
+            Valid values for pages: "parentNotebook", "parentSection".
         - name: includePreview
           in: query
           required: false

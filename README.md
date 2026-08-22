@@ -25,26 +25,27 @@ What it currently supports (via Graph, exposed as GPT Action operations):
 
 - List notebooks, sections, section groups, pages (`listNotebooks`, `listAllSections`,
   `listSectionGroupsInNotebook`, `listPagesInSection`, ...), with optional
-  `$filter` (e.g. by `lastModifiedDateTime`) and `includePreview=true` for a
-  plain-text snippet per result
+  `$filter` (e.g. by `lastModifiedDateTime`), `$orderby`, `$expand` and
+  `includePreview=true` for a plain-text snippet per result
 - Read a page's content as HTML or as clean Markdown (`getPage`, `getPageContent?format=markdown`)
 - Create a notebook, section, section group or page (`createNotebook`,
   `createSection`, `createSectionGroup`, `createSectionInGroup`, `createPage`)
 - Update an existing page's content (`updatePageContent`)
 - Add an image or file attachment to a page (`addImageToPage`, `addAttachmentToPage`)
 - Copy or move a page to another section (`copyPageToSection`, `movePage`)
-- Copy a whole section — template and all its pages — into another notebook
-  or section group (`copySectionToNotebook`, `copySectionToSectionGroup`)
+- Copy a whole section, or an entire notebook, template-and-all into another
+  notebook/section group (`copySectionToNotebook`, `copySectionToSectionGroup`,
+  `copyNotebook`)
 - Delete a page (`deletePage`)
 
 Authentication is delegated Microsoft sign-in (OAuth via Entra ID) — you only
 ever see and edit your own OneNote content, scoped to `Notes.ReadWrite`.
 
-**Not supported, by design:** renaming a notebook or section. Microsoft Graph's
-OneNote API only supports List/Get/Create on notebooks and sections — there is
-no update operation, so a "rename" would have to be faked as delete-and-recreate,
-which is destructive and loses page history/links. Rename sections directly in
-OneNote instead.
+**Not supported, by design:** renaming or deleting a notebook or section.
+Microsoft Graph's OneNote API only supports List/Get/Create on notebooks and
+sections — there is no update or delete operation, so faking either would mean
+delete-and-recreate, which is destructive and loses page history/links. Do
+this directly in OneNote instead.
 
 ## Installation
 
@@ -378,18 +379,24 @@ agent prompt if you have one covering other Actions too):
   `listPagesInSection`, `createPage`, `listPages`, `getPage`, `getPageContent`,
   `updatePageContent`, `addImageToPage`, `addAttachmentToPage`,
   `copyPageToSection`, `movePage`, `copySectionToNotebook`,
-  `copySectionToSectionGroup`, `deletePage`). Never answer a OneNote question
-  from memory and never invent notebook, section or page names. Renaming or
-  deleting a notebook or section is **not possible** — Graph has no
-  update/delete operation for them; tell the user to do it directly in
-  OneNote instead.
+  `copySectionToSectionGroup`, `copyNotebook`, `deletePage`). Never answer a
+  OneNote question from memory and never invent notebook, section or page
+  names. Renaming or deleting a notebook or section is **not possible** —
+  Graph has no update/delete operation for them; tell the user to do it
+  directly in OneNote instead.
 - To reuse a course or client template, call `copySectionToNotebook` (or
   `copySectionToSectionGroup`) with the template `sectionId` and the
   destination notebook/section-group `id` — this copies the whole section
   with all its pages in one call, instead of recreating pages one by one.
-  Like `copyPageToSection`, Graph processes this asynchronously (202
-  response); don't claim the copy is finished until the user confirms it if
-  that matters.
+  For duplicating an entire notebook (all sections and pages) as a starting
+  point for a new client/cohort, use `copyNotebook` instead. Like
+  `copyPageToSection`, these are asynchronous (202 response); don't claim
+  the copy is finished until the user confirms it if that matters.
+- `listNotebooks`, `listPages` and `listPagesInSection` accept `$orderby`
+  (e.g. `lastModifiedDateTime desc`) and `$expand` (e.g. `parentSection` on
+  pages) in addition to `$select`/`$top`/`$filter` — use them instead of
+  sorting/filtering results yourself when the user asks for "most recently
+  edited" or similar.
 - The user will refer to notebooks, sections and pages by name, not by ID. Resolve
   the exact `id` first with `listNotebooks`, `listSectionsInNotebook`, `listAllSections`
   or `listPagesInSection` (use `$select=id,displayName` or `id,title` to keep the
