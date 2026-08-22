@@ -60,9 +60,18 @@ Microsoft Graph's one-step OneNote page creation endpoint
 (`POST /me/onenote/sections/{id}/pages`) requires a `multipart/form-data` body
 with a `Presentation` part. ChatGPT Actions can only send plain JSON request
 bodies, so a thin proxy sits in between: it accepts `{"content": "<html>...</html>"}`
-as JSON and builds the multipart body Graph expects. Every other request
-(GET/POST/PATCH/DELETE on any other Graph path) is forwarded unchanged —
-the caller's `Authorization` header is passed straight through to Graph.
+as JSON and builds the multipart body Graph expects. The same trick covers
+updating page content (`updatePageContent`'s `commands` array) and embedding
+images/attachments (`addImageToPage`/`addAttachmentToPage`'s base64 `data`
+field) — anywhere Graph itself demands multipart, the proxy turns it back
+into plain JSON. It also adds a couple of conveniences Graph doesn't offer
+directly: `getPageContent?format=markdown` (clean Markdown instead of raw
+HTML), `includePreview=true` on page lists (a text snippet per result), and
+`movePage` (copy, verify, then delete — Graph has no native cross-section
+page move). Every other request (GET/POST/PATCH/DELETE on any other Graph
+path, including the native async `copyPageToSection`, `copySectionToNotebook`,
+`copySectionToSectionGroup` and `copyNotebook`) is forwarded unchanged — the
+caller's `Authorization` header is passed straight through to Graph.
 
 ```
 ChatGPT Action → Azure Function (this repo) → https://graph.microsoft.com/v1.0/...
@@ -73,7 +82,10 @@ ChatGPT Action → Azure Function (this repo) → https://graph.microsoft.com/v1
 | File | Purpose |
 |---|---|
 | [src/functions/graphProxy.js](src/functions/graphProxy.js) | The proxy itself — one HTTP-triggered function, route `v1.0/{*restOfPath}` |
+| [src/functions/setupGuide.js](src/functions/setupGuide.js) | Serves the static files in [setup-guide/](setup-guide/) (onboarding page, privacy policy, downloadable OpenAPI spec) |
 | [openapi.yaml](openapi.yaml) | OpenAPI 3.1 spec — import this as the GPT's Action |
+| [PROMPT-EXAMPLES.md](PROMPT-EXAMPLES.md) | Example prompts with their expected tool-call chains — a manual test script and a reference for tuning GPT Instructions |
+| [setup-guide/](setup-guide/) | Self-service onboarding page, privacy policy, and a copy of the OpenAPI spec served live from the deployed Function App |
 | [host.json](host.json) / [local.settings.json](local.settings.json) | Azure Functions host & local runtime config |
 
 ## Prerequisites
@@ -523,6 +535,18 @@ for the full set of supported targets and actions.
   header and forwards it to Graph, but there's no Azure Functions-level key —
   anyone who finds the URL can attempt a call (Graph still rejects it without
   a valid token, but keep that in mind before treating the URL as a secret).
+- **25 MB cap on images/attachments.** `addImageToPage`/`addAttachmentToPage`
+  reject a decoded payload over 25 MB with `413`. Graph itself may have a
+  lower effective limit depending on tenant/page size.
+- **`movePage` can leave a duplicate in a rare failure window.** It only
+  deletes the original after Graph confirms the copy succeeded; if that copy
+  succeeds but the subsequent delete call itself fails, you'll have two
+  copies of the page and get a `502` naming the new page's id so you can
+  clean up manually. If the copy is still running after ~20 seconds it
+  returns `202` and leaves the original untouched — safe to retry.
+- **Notebooks and sections can't be renamed or deleted.** Not a proxy
+  limitation — Microsoft Graph's OneNote API has no update/delete operation
+  for them. Do this directly in OneNote.
 
 ## Troubleshooting
 

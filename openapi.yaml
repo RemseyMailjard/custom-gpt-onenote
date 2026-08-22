@@ -2,19 +2,25 @@ openapi: 3.1.0
 info:
   title: OneNote via Microsoft Graph (Proxy)
   description: >
-    Proxy in front of Microsoft Graph v1.0 for reading and writing OneNote
-    notebooks, sections and pages of the signed-in user. The proxy forwards
-    the caller's Authorization header straight through to Microsoft Graph,
-    so a valid Microsoft Entra ID (Azure AD) delegated access token with
-    OneNote permissions is required on every call.
+    Proxy in front of Microsoft Graph v1.0 for reading, writing and
+    organizing OneNote notebooks, sections, section groups and pages of the
+    signed-in user. The proxy forwards the caller's Authorization header
+    straight through to Microsoft Graph, so a valid Microsoft Entra ID
+    (Azure AD) delegated access token with OneNote permissions is required
+    on every call.
 
-    Note: creating a page (POST .../sections/{sectionId}/pages) accepts a
-    plain JSON body with a `content` field containing full HTML, and updating
-    a page's content (PATCH .../pages/{pageId}/content) accepts a plain JSON
-    body with a `commands` array; the proxy converts both to the
-    multipart/form-data format Microsoft Graph requires. All other
-    operations are transparent pass-through to Microsoft Graph.
-  version: 1.0.0
+    Note: several operations accept plain JSON where Microsoft Graph itself
+    requires multipart/form-data, and the proxy builds that multipart body
+    for you — creating a page (`content` field, full HTML), updating a
+    page's content (`commands` array), and adding an image or file
+    attachment to a page (base64 `data` field). `getPageContent` can also
+    return a page as clean Markdown instead of raw HTML via
+    `?format=markdown`. `movePage` is a composite operation (copy, verify,
+    then delete the original) since Graph has no native cross-section page
+    move. All other operations — including the native async
+    `copyPageToSection`, `copySectionToNotebook`, `copySectionToSectionGroup`
+    and `copyNotebook` — are transparent pass-through to Microsoft Graph.
+  version: 1.1.0
 servers:
   - url: https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net
     description: Production (Azure Functions, Linux Consumption).
