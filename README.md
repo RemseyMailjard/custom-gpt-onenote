@@ -8,7 +8,7 @@ all through natural conversation instead of clicking through OneNote.
 
 This repo is the backend piece that makes that possible — a small **Azure
 Functions proxy** in front of Microsoft Graph's OneNote API. It is *not* an
-MCP server; it's a REST API described by an OpenAPI spec ([openapi.yaml](openapi.yaml))
+MCP server; it's a REST API described by an OpenAPI spec ([openapi.template.yaml](openapi.template.yaml))
 that a ChatGPT Custom GPT calls as an "Action". The GPT itself (via its
 Instructions, see below) does the reasoning: deciding which notebook/section/
 page to use, resolving names to IDs, and generating page content. The proxy's
@@ -82,18 +82,23 @@ ChatGPT Action → Azure Function (this repo) → https://graph.microsoft.com/v1
 | File | Purpose |
 |---|---|
 | [src/functions/graphProxy.js](src/functions/graphProxy.js) | The proxy itself — one HTTP-triggered function, route `v1.0/{*restOfPath}` |
-| [src/functions/setupGuide.js](src/functions/setupGuide.js) | Serves the static files in [setup-guide/](setup-guide/) (onboarding page, privacy policy, downloadable OpenAPI spec) |
-| [openapi.yaml](openapi.yaml) | OpenAPI 3.1 spec — import this as the GPT's Action |
+| [src/functions/setupGuide.js](src/functions/setupGuide.js) | Serves the static files in [setup-guide/](setup-guide/) (onboarding page, privacy policy, downloadable OpenAPI spec), substituting `{{PLACEHOLDER}}` tokens from App Settings at request time |
+| [openapi.template.yaml](openapi.template.yaml) | OpenAPI 3.1 spec, generic — `{{PLACEHOLDER}}` tokens filled in per deployment by `scripts/render-openapi.js` |
+| [azure.yaml](azure.yaml) / [infra/](infra/) | Azure Developer CLI (`azd`) project: Bicep for the Azure resources, plus a `postprovision` hook for the Entra app registration |
+| [scripts/render-openapi.js](scripts/render-openapi.js) | Fills `openapi.template.yaml`'s placeholders from a `deployments/<name>/config.json` — used by the `azd` postprovision hook |
+| [deployments/](deployments/) | One folder per deployment: `config.json` (public deployment values) and the generated `openapi.yaml` to import into that deployment's Custom GPT |
 | [PROMPT-EXAMPLES.md](PROMPT-EXAMPLES.md) | Example prompts with their expected tool-call chains — a manual test script and a reference for tuning GPT Instructions |
 | [setup-guide/](setup-guide/) | Self-service onboarding page, privacy policy, and a copy of the OpenAPI spec served live from the deployed Function App |
 | [host.json](host.json) / [local.settings.json](local.settings.json) | Azure Functions host & local runtime config |
 
 ## Prerequisites
 
-- Node.js 18/20/22 (this proxy targets Node 20 in production — see
-  [Troubleshooting](#troubleshooting))
+- Node.js 22 (this proxy targets Node 22 in production — Node 20 reached
+  end-of-life on 2026-04-30; see [Troubleshooting](#troubleshooting))
 - [Azure Functions Core Tools v4](https://learn.microsoft.com/azure/azure-functions/functions-run-local)
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az`), logged in: `az login`
+- [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+  (`azd`) — for the [fast deploy path](#deploying-to-azure); the manual path only needs `az`
 - An Azure subscription and a Microsoft Entra ID (Azure AD) tenant you can register apps in
 - A ChatGPT plan that supports Custom GPTs with Actions
 
@@ -112,12 +117,54 @@ curl http://localhost:7071/v1.0/me/onenote/notebooks
 
 ## Deploying to Azure
 
+This repo is designed to be deployed **once per tenant/customer** — every
+deployment is single-tenant (its own Entra app registration, its own Azure
+resources), and every deployment-specific value (Function App URL, tenant ID,
+Client ID) is templated out of the source, never hardcoded. See
+[Deployment config](#deployment-config) below for how that works.
+
+### Fast path: Azure Developer CLI (`azd`)
+
+Requires [`azd`](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+(already installs alongside Azure CLI on most setups; `azd version` to check).
+
+```bash
+az login --tenant <target-tenant-id>   # log into the tenant this deployment is for
+
+azd auth login                         # azd needs its own auth context too
+azd env new <deployment-name>          # one azd environment per tenant/customer
+azd up
+```
+
+`azd up` provisions the resource group, storage account, Application
+Insights and Function App from [infra/main.bicep](infra/main.bicep) (Linux
+Consumption, Node 22), deploys the code, then runs
+[infra/hooks/postprovision.sh](infra/hooks/postprovision.sh) automatically:
+that hook creates the single-tenant Entra ID app registration with
+`Notes.ReadWrite`/`offline_access` permissions, wires `ENTRA_TENANT_ID`/
+`ENTRA_CLIENT_ID` into the Function App's App Settings, and generates
+`deployments/<deployment-name>/config.json` + `openapi.yaml`. It prints the
+Client ID/Secret you need for the ChatGPT Action's Authentication panel.
+**Copy the Client Secret immediately — it's shown once.**
+
+Re-running `azd up` (or `azd provision`) later is idempotent — it reconciles
+the existing resources instead of failing on "already exists", and the
+postprovision hook reuses the existing Entra app registration by display
+name instead of creating a duplicate. `azd down` tears the deployment back
+down if a customer churns.
+
+Bicep can't create Entra ID / Microsoft Graph objects (app registrations
+aren't ARM resources), which is why that one step still shells out to `az ad`
+inside a hook rather than living in `infra/*.bicep`.
+
+### Manual path
+
 ```bash
 # variables — adjust to your own naming
-RG=remsey-onenote-proxy-rg
+RG=<your-resource-group>
 LOCATION=westeurope
-STORAGE=remseyonenoteproxyz3oh
-FUNCTIONAPP=remsey-onenote-proxy-z3oh
+STORAGE=<your-storage-account>   # lowercase, alphanumeric, ≤24 chars
+FUNCTIONAPP=<your-function-app-name>
 
 az group create --name $RG --location $LOCATION
 
@@ -125,35 +172,78 @@ az storage account create --name $STORAGE --location $LOCATION \
   --resource-group $RG --sku Standard_LRS
 
 az functionapp create --resource-group $RG --consumption-plan-location $LOCATION \
-  --runtime node --runtime-version 20 --functions-version 4 \
+  --runtime node --runtime-version 22 --functions-version 4 \
   --name $FUNCTIONAPP --storage-account $STORAGE --os-type Linux
 
 # deploy the code
 func azure functionapp publish $FUNCTIONAPP
 ```
 
-**Important:** use `--runtime-version 20` (or 22). Node 24 is listed in
-`az functionapp list-runtimes` but is not reliably available on Linux
-Consumption yet — see [Troubleshooting](#troubleshooting) for what happens if
-you use it.
+**Important:** use `--runtime-version 22`. Node 20 reached end-of-life on
+2026-04-30 and Azure now refuses to create new Function Apps on it; Node 24 is
+listed in `az functionapp list-runtimes` but has not reliably worked on Linux
+Consumption — see [Troubleshooting](#troubleshooting) for what happens if you
+use it.
 
-This project's live deployment: Function App `remsey-onenote-proxy-z3oh` in
-resource group `remsey-onenote-proxy-rg`, Linux Consumption plan, `Node|20`.
+## Deployment config
+
+`setupGuide.js` reads three App Settings at request time and substitutes them
+into the pages it serves (`setup-guide/index.html`, `privacy.html`,
+`openapi.notebuddy-gpt.yaml`) wherever they contain a `{{PLACEHOLDER}}` token
+— nothing deployment-specific is hardcoded in those files:
+
+| App Setting | Used for |
+|---|---|
+| `PROXY_BASE_URL` | The Function App's own URL, e.g. `https://acme-onenote-proxy.azurewebsites.net` |
+| `ENTRA_TENANT_ID` | The Entra tenant this deployment's app registration lives in |
+| `ENTRA_CLIENT_ID` | The Entra app registration's public Client ID |
+
+`infra/hooks/postprovision.sh` sets these automatically as part of `azd up`.
+`PROXY_BASE_URL` is actually set twice — once by `infra/resources.bicep`
+during provisioning (a deterministic value derived from the Function App
+name), once by the hook (harmless, keeps both paths self-contained). To set
+them by hand:
+
+```bash
+az functionapp config appsettings set --name $FUNCTIONAPP --resource-group $RG \
+  --settings \
+    PROXY_BASE_URL="https://$FUNCTIONAPP.azurewebsites.net" \
+    ENTRA_TENANT_ID="<tenant id>" \
+    ENTRA_CLIENT_ID="<client id>"
+```
+
+The root [openapi.template.yaml](openapi.template.yaml) uses the same
+`{{PLACEHOLDER}}` tokens; it's not served, so it's filled in with
+`scripts/render-openapi.js` instead (also run automatically by the
+`postprovision` hook):
+
+```bash
+node scripts/render-openapi.js deployments/<deployment-name>/config.json
+# writes deployments/<deployment-name>/openapi.yaml
+```
+
+Every deployment's resolved config and generated spec live under
+`deployments/<deployment-name>/` — check that folder in so a deployment can
+be recreated or audited later. `config.json` holds only public identifiers
+(tenant ID, Client ID, resource names); the Client Secret is **never** written
+to disk anywhere in this repo.
 
 ## Microsoft Entra ID app registration (for ChatGPT OAuth)
 
 The proxy itself doesn't care how the caller got its token — it just forwards
 whatever `Authorization` header it receives to Graph. ChatGPT needs an app
 registration to run the OAuth authorization-code flow against.
+`infra/hooks/postprovision.sh` does the following automatically as part of
+`azd up`; shown here for the manual path or to understand what it's doing:
 
 ```bash
 TENANT_ID=$(az account show --query tenantId -o tsv)
 
-# 1. create a multitenant app registration — any work/school Microsoft 365
-# tenant can sign in, not just this one. Use AzureADMyOrg instead if you only
-# ever want your own tenant's users.
+# 1. create a single-tenant app registration — only users in this tenant can
+# sign in. Use AzureADMultipleOrgs instead if you want any work/school
+# Microsoft 365 tenant to be able to sign in (a multitenant SaaS-style setup).
 az ad app create --display-name "OneNote ChatGPT Action" \
-  --sign-in-audience AzureADMultipleOrgs
+  --sign-in-audience AzureADMyOrg
 
 APP_ID=<appId from the output above>
 
@@ -169,17 +259,14 @@ az ad app credential reset --id $APP_ID --append --display-name "chatgpt-action"
 ```
 
 Both `Notes.ReadWrite` and `offline_access` are user-consentable scopes, so
-**admin consent is not required from any tenant** — every signed-in user, in
-their own organization, approves them individually on first login through
-ChatGPT's OAuth screen. No one needs to pre-register or be added anywhere;
-sign-in and consent alone is what grants access, scoped to that user's own
-OneNote.
+**admin consent is not required** — the signed-in user approves them on first
+login through ChatGPT's OAuth screen.
 
-### Already have a single-tenant registration?
+### Multitenant instead of single-tenant?
 
-You don't need to create a new one — switch the existing registration to
-multitenant in place (this keeps the same Client ID/Secret, so the ChatGPT
-Action doesn't need to change):
+If you'd rather run one shared app registration that any work/school
+Microsoft 365 tenant can sign into (a multitenant SaaS-style setup, not the
+default this repo is built around), switch the sign-in audience:
 
 ```bash
 az ad app update --id $APP_ID --sign-in-audience AzureADMultipleOrgs
@@ -189,35 +276,36 @@ az ad app show --id $APP_ID --query signInAudience -o tsv
 # expect: AzureADMultipleOrgs
 ```
 
-This project's app registration: `OneNote ChatGPT Action`, app id
-`f1d0f17d-e587-40d2-a698-fb0bd8979404`, home tenant `a300b38b-6acb-43db-b02a-af94b4300d87`
-(skills4-it.nl) — multitenant (`AzureADMultipleOrgs`), so users from any
-other Microsoft 365 work/school tenant can sign in too. Personal Microsoft
-accounts (`@outlook.com`, `@live.com`) are intentionally not supported.
+With a multitenant app, use `/organizations/` (not the tenant ID) in the
+Authorization/Token URLs in the next section.
 
 ## Setting up the Custom GPT
 
 1. In the GPT Builder, go to **Configure → Actions → Create new action**.
-2. Import [openapi.yaml](openapi.yaml) (paste the raw content or upload the file).
+2. Import `deployments/<your-deployment-name>/openapi.yaml` (paste the raw
+   content or upload the file) — or point ChatGPT's importer at
+   `https://<your-function-app>.azurewebsites.net/setup-guide/openapi.notebuddy-gpt.yaml`,
+   which serves the same spec with your live values already filled in.
    All parameters are inlined rather than using `$ref` — ChatGPT's importer
    doesn't resolve `$ref` inside a `parameters` array, only inside schemas.
-3. Set **Authentication → OAuth** with:
+3. Set **Authentication → OAuth** with the values `azd up` printed
+   (or your own, if you registered the app manually):
 
    | Field | Value |
    |---|---|
-   | Client ID | `f1d0f17d-e587-40d2-a698-fb0bd8979404` |
-   | Client Secret | *(the secret from step 3 above — never commit this)* |
-   | Authorization URL | `https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize` |
-   | Token URL | `https://login.microsoftonline.com/organizations/oauth2/v2.0/token` |
+   | Client ID | *(your Entra app's Client ID — public, see `deployments/<name>/config.json`)* |
+   | Client Secret | *(shown once by `az ad app credential reset` — never commit this)* |
+   | Authorization URL | `https://login.microsoftonline.com/<your tenant ID>/oauth2/v2.0/authorize` |
+   | Token URL | `https://login.microsoftonline.com/<your tenant ID>/oauth2/v2.0/token` |
    | Scope | `https://graph.microsoft.com/Notes.ReadWrite offline_access` |
    | Token Exchange Method | Default (POST request) |
 
-   Use the `/organizations/` path, not a specific tenant ID — that's what
-   makes sign-in multitenant. It accepts a user from *any* Microsoft 365
-   work/school tenant (each signs in against their own tenant and consents
-   individually), while still rejecting personal `@outlook.com`/`@live.com`
-   accounts. Using a tenant-specific GUID here instead would restrict
-   sign-in to that one organization only.
+   Use your Entra tenant's GUID in the path — that's what restricts sign-in
+   to a single-tenant app's own tenant. If you switched the app to
+   `AzureADMultipleOrgs` per the section above, use `/organizations/` instead
+   so any work/school Microsoft 365 tenant can sign in; `common` would also
+   accept personal Microsoft accounts, which this app deliberately doesn't
+   support.
 
    #### What each field means
 
@@ -228,35 +316,37 @@ accounts (`@outlook.com`, `@live.com`) are intentionally not supported.
      Graph needs a *delegated, per-user* token — there's no fixed "API key"
      that would let the proxy know which user's OneNote to read.
 
-   - **Client ID** — `f1d0f17d-e587-40d2-a698-fb0bd8979404`, the public
-     identifier of the Entra app registration (`az ad app create` in step 1
-     above returns this as `appId`). Identifies *which application* is asking
-     Microsoft for access — not a secret, safe to show in a URL or commit.
+   - **Client ID** — the public identifier of the Entra app registration
+     (`az ad app create` returns this as `appId`; the `azd` postprovision hook prints
+     it, and it's saved in `deployments/<name>/config.json`). Identifies
+     *which application* is asking Microsoft for access — not a secret, safe
+     to show in a URL or commit.
 
-   - **Client Secret** — the value from `az ad app credential reset` in step
-     3 above, shown once at creation time. Proves to Microsoft that it's
-     really *this* app (not an impersonator using the same Client ID) asking
-     for a token. Never commit it, never put it in this repo — it only lives
-     in ChatGPT's Action auth panel, which stores it encrypted and never
-     shows it back to you after saving.
+   - **Client Secret** — the value from `az ad app credential reset`, shown
+     once at creation time. Proves to Microsoft that it's really *this* app
+     (not an impersonator using the same Client ID) asking for a token.
+     Never commit it, never put it in this repo — it only lives in ChatGPT's
+     Action auth panel, which stores it encrypted and never shows it back to
+     you after saving.
 
    - **Authorization URL** —
-     `https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize`.
-     The page ChatGPT sends the user's browser to *first* — this is the
-     actual Microsoft login/consent screen. The path segment after
+     `https://login.microsoftonline.com/<tenant ID>/oauth2/v2.0/authorize`
+     for a single-tenant app (the default this repo builds). The page
+     ChatGPT sends the user's browser to *first* — this is the actual
+     Microsoft login/consent screen. The path segment after
      `login.microsoftonline.com` controls who's allowed to sign in: a
      specific tenant GUID there restricts sign-in to that one Entra tenant;
-     `organizations` (used here) accepts any work/school tenant; `common`
-     would also accept personal Microsoft accounts, which this app
-     deliberately doesn't support.
+     `organizations` accepts any work/school tenant (only if the app was
+     switched to `AzureADMultipleOrgs`); `common` would also accept personal
+     Microsoft accounts, which this app deliberately doesn't support.
 
    - **Token URL** —
-     `https://login.microsoftonline.com/organizations/oauth2/v2.0/token`.
+     `https://login.microsoftonline.com/<tenant ID>/oauth2/v2.0/token`.
      Where ChatGPT calls, server-to-server (browser never sees this step),
      *after* the user consents — it exchanges the authorization code from
      the callback for an actual access token, using the Client ID + Client
-     Secret as proof of identity. Must use the same path segment
-     (`organizations`) as the Authorization URL above.
+     Secret as proof of identity. Must use the same path segment as the
+     Authorization URL above.
 
    - **Scope** — `https://graph.microsoft.com/Notes.ReadWrite offline_access`,
      space-separated. This is what ChatGPT actually asks Microsoft for
@@ -560,8 +650,10 @@ did **not** fix it). Fix:
 
 ```bash
 az functionapp config set --name $FUNCTIONAPP --resource-group $RG \
-  --linux-fx-version "Node|20"
+  --linux-fx-version "Node|22"
 ```
+
+(The original fix used `Node|20`; Node 20 reached end-of-life on 2026-04-30, so use `Node|22` now.)
 
 **`AADSTS50011: The redirect URI ... does not match ...`** — the redirect URI
 ChatGPT sends isn't registered on the app. Add it (see step 4 above); it
@@ -570,4 +662,4 @@ changes if you delete and recreate the GPT's Action.
 **GPT Action import warnings like `parameter {'$ref': ...} has missing or
 non-string name; skipping`.** ChatGPT's OpenAPI importer doesn't resolve
 `$ref` inside a `parameters` array. Keep parameters inlined per operation, as
-in the current [openapi.yaml](openapi.yaml) (`$ref` in schemas/responses is fine).
+in [openapi.template.yaml](openapi.template.yaml) (`$ref` in schemas/responses is fine).

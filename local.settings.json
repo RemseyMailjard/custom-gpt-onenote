@@ -2,6 +2,9 @@
   "IsEncrypted": false,
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node"
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "PROXY_BASE_URL": "http://localhost:7071",
+    "ENTRA_TENANT_ID": "",
+    "ENTRA_CLIENT_ID": ""
   }
 }

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: onenote-graph-proxy
+metadata:
+  template: onenote-graph-proxy@0.1.0
+services:
+  api:
+    project: .
+    language: js
+    host: function
+hooks:
+  postprovision:
+    shell: sh
+    run: ./infra/hooks/postprovision.sh
+    interactive: true
+    continueOnError: false

@@ -22,7 +22,7 @@ info:
     and `copyNotebook` — are transparent pass-through to Microsoft Graph.
   version: 1.1.0
 servers:
-  - url: https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net
+  - url: "{{PROXY_BASE_URL}}"
     description: Production (Azure Functions, Linux Consumption)
 
 security:
@@ -935,22 +935,20 @@ components:
         Configure Client ID / Client Secret in ChatGPT's Action ->
         Authentication panel (OAuth), not in this file. This deployment uses
         a single-tenant Microsoft Entra ID app registration (sign-in audience
-        AzureADMyOrg, tenant 11b6a58f-f5f3-4fc9-b77d-4443f4155763 —
-        personal use, only that tenant's users can sign in), Client ID
-        0a6341b0-6fce-40dd-abea-a5c67e8e6519. Redirect URIs registered on the
-        app: https://chat.openai.com/aip/g-2615d0cc79e85d663dceb225b63ba1d34add4cc7/oauth/callback
-        and https://chat.openai.com/aip/g-d74e62a1a9af451d01fb53e24aa253b9650a37f8/oauth/callback
-        (each GPT's actual callback URL, shown by ChatGPT once OAuth is
-        selected as the auth method — it changes if the GPT's Action is
+        AzureADMyOrg, tenant {{ENTRA_TENANT_ID}} — only that tenant's users
+        can sign in), Client ID {{ENTRA_CLIENT_ID}}, with delegated
+        Microsoft Graph permission Notes.ReadWrite (+ offline_access)
+        granted. Each GPT built against this Action needs its own callback
+        URL registered on the app — ChatGPT shows the exact value
+        (https://chat.openai.com/aip/g-<gpt-id>/oauth/callback) once OAuth
+        is selected as the auth method; it changes if the GPT's Action is
         deleted and recreated, so re-check it and re-register it if auth
-        stops working) and delegated Microsoft Graph permission
-        Notes.ReadWrite (+ offline_access) granted. Because the app is
-        single-tenant, Authorization/Token URL must use the tenant ID
-        (below), not /organizations/ or /common/.
+        stops working. Because the app is single-tenant, Authorization/Token
+        URL must use the tenant ID (below), not /organizations/ or /common/.
       flows:
         authorizationCode:
-          authorizationUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/authorize
-          tokenUrl: https://login.microsoftonline.com/11b6a58f-f5f3-4fc9-b77d-4443f4155763/oauth2/v2.0/token
+          authorizationUrl: https://login.microsoftonline.com/{{ENTRA_TENANT_ID}}/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/{{ENTRA_TENANT_ID}}/oauth2/v2.0/token
           scopes:
             Notes.ReadWrite: Read and write the signed-in user's OneNote notebooks
             offline_access: Keep access when the user is not present (refresh token)

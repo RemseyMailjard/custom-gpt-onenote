@@ -3,5 +3,8 @@ node_modules/
 bin/
 obj/
 
+# Azure Developer CLI local environment state
+.azure/
+
 # Contains OAuth client secrets — never commit
 notebuddy-gpt-oauth-config.md

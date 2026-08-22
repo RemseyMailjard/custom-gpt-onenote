@@ -1,0 +1,19 @@
+{
+  "description": "Personal-use deployment for Remsey (moovzyou.nl), single-tenant, no billing/licensing.",
+  "azureSubscriptionId": "74583fdd-567f-45ba-b84f-512e96ec2293",
+  "resourceGroup": "moovzyou-onenote-proxy-rg",
+  "location": "westeurope",
+  "storageAccount": "moovzyouonenotefwdwo",
+  "functionAppName": "moovzyou-onenote-proxy-fwdwo",
+  "proxyBaseUrl": "https://moovzyou-onenote-proxy-fwdwo.azurewebsites.net",
+  "entraTenantId": "11b6a58f-f5f3-4fc9-b77d-4443f4155763",
+  "entraAppDisplayName": "OneNote ChatGPT Action",
+  "entraClientId": "0a6341b0-6fce-40dd-abea-a5c67e8e6519",
+  "signInAudience": "AzureADMyOrg",
+  "nodeVersion": "22",
+  "redirectUris": [
+    "https://chat.openai.com/aip/g-2615d0cc79e85d663dceb225b63ba1d34add4cc7/oauth/callback",
+    "https://chat.openai.com/aip/g-d74e62a1a9af451d01fb53e24aa253b9650a37f8/oauth/callback"
+  ],
+  "note": "entraClientId and redirectUris are public identifiers, safe to keep here. The client secret is NOT stored anywhere in this repo — it only lives in the ChatGPT Action's Authentication panel and (if rotated) in `az ad app credential reset` output."
+}
